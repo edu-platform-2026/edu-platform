@@ -67,13 +67,13 @@ export class AnalyticsService {
       }),
     ]);
 
-    // 用户角色分布
+    // 用户角色分布 - 使用 groupBy 统计每个角色的用户数
     const roleDistribution = await this.prisma.userRole.groupBy({
       by: ['roleId'],
       where: {
         user: { institutionId, status: 1 },
       },
-      _count: { userId: true },
+      _count: true,
     });
 
     // 获取角色名称
@@ -87,7 +87,7 @@ export class AnalyticsService {
       roleId: rd.roleId,
       roleName: roleMap.get(rd.roleId)?.name || '未知',
       roleCode: roleMap.get(rd.roleId)?.code || 'unknown',
-      count: (rd._count as { userId: number }).userId,
+      count: rd._count || 0,
     }));
 
     return {
@@ -360,5 +360,291 @@ export class AnalyticsService {
       })),
       feedbacks: { total: feedbackCount },
     };
+  }
+
+  /**
+   * 获取学生注册趋势（按月累计）
+   * @param institutionId 机构 ID
+   * @returns 每月累计学生人数
+   */
+  async getStudentTrend(institutionId: string): Promise<{ date: string; count: number }[]> {
+    try {
+      const students = await this.prisma.user.findMany({
+        where: {
+          institutionId,
+          status: 1,
+          userRoles: { some: { role: { code: 'STUDENT' } } },
+        },
+        select: { createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (students.length === 0) {
+        return [];
+      }
+
+      // 按月分组统计
+      const monthlyMap = new Map<string, number>();
+      for (const student of students) {
+        const year = student.createdAt.getFullYear();
+        const month = String(student.createdAt.getMonth() + 1).padStart(2, '0');
+        const key = `${year}-${month}`;
+        monthlyMap.set(key, (monthlyMap.get(key) || 0) + 1);
+      }
+
+      // 按时间排序并计算累计值
+      const sortedKeys = [...monthlyMap.keys()].sort();
+      let cumulative = 0;
+      const result: { date: string; count: number }[] = [];
+      for (const key of sortedKeys) {
+        cumulative += monthlyMap.get(key)!;
+        result.push({ date: key, count: cumulative });
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error('获取学生注册趋势失败', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取课程分布（按学科统计学生人数）
+   * @param institutionId 机构 ID
+   * @param teacherId 教师 ID（可选，教师角色时传入）
+   * @returns 各学科的课程及学生分布
+   */
+  async getCourseDistribution(
+    institutionId: string,
+    teacherId?: string,
+  ): Promise<{ name: string; value: number }[]> {
+    try {
+      const where: any = { institutionId, status: 1 };
+      if (teacherId) where.teacherId = teacherId;
+
+      const courses = await this.prisma.course.findMany({
+        where,
+        include: {
+          class: {
+            select: {
+              _count: { select: { classStudents: true } },
+            },
+          },
+        },
+      });
+
+      if (courses.length === 0) {
+        return [];
+      }
+
+      // 按学科分组，统计学生人数
+      const subjectMap = new Map<string, number>();
+      for (const course of courses) {
+        const subject = course.subject || '未分类';
+        const studentCount = course.class._count.classStudents;
+        subjectMap.set(subject, (subjectMap.get(subject) || 0) + studentCount);
+      }
+
+      return [...subjectMap.entries()].map(([name, value]) => ({ name, value }));
+    } catch (error) {
+      this.logger.error('获取课程分布失败', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取教师绩效数据
+   * @param institutionId 机构 ID
+   * @returns 各教师的绩效指标
+   */
+  async getTeacherPerformance(
+    institutionId: string,
+  ): Promise<{
+    teacherId: string;
+    teacherName: string;
+    courseCount: number;
+    studentCount: number;
+    avgScore: number;
+    assignmentCount: number;
+  }[]> {
+    try {
+      const teachers = await this.prisma.user.findMany({
+        where: {
+          institutionId,
+          status: 1,
+          userRoles: { some: { role: { code: 'TEACHER' } } },
+        },
+        select: {
+          id: true,
+          realName: true,
+          teachingCourses: {
+            where: { status: 1 },
+            select: {
+              id: true,
+              class: {
+                select: {
+                  _count: { select: { classStudents: true } },
+                },
+              },
+              assignments: {
+                select: {
+                  submissions: {
+                    where: { score: { not: null } },
+                    select: { score: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (teachers.length === 0) {
+        return [];
+      }
+
+      return teachers.map((teacher) => {
+        let studentCount = 0;
+        let totalScore = 0;
+        let scoreCount = 0;
+        let assignmentCount = 0;
+
+        for (const course of teacher.teachingCourses) {
+          studentCount += course.class._count.classStudents;
+          assignmentCount += course.assignments.length;
+          for (const assignment of course.assignments) {
+            for (const submission of assignment.submissions) {
+              if (submission.score !== null) {
+                totalScore += Number(submission.score);
+                scoreCount++;
+              }
+            }
+          }
+        }
+
+        return {
+          teacherId: teacher.id,
+          teacherName: teacher.realName,
+          courseCount: teacher.teachingCourses.length,
+          studentCount,
+          avgScore: scoreCount > 0 ? Number((totalScore / scoreCount).toFixed(2)) : 0,
+          assignmentCount,
+        };
+      });
+    } catch (error) {
+      this.logger.error('获取教师绩效数据失败', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取营收趋势（基于提交数据的模拟值）
+   * 由于没有实际的支付模型，使用提交数量 * 100 作为占位金额
+   * @param institutionId 机构 ID
+   * @param year 年份（默认当前年）
+   * @returns 每月模拟营收数据
+   */
+  async getRevenueTrend(
+    institutionId: string,
+    year?: number,
+  ): Promise<{ month: string; amount: number }[]> {
+    try {
+      const targetYear = year || new Date().getFullYear();
+      const startDate = new Date(targetYear, 0, 1);
+      const endDate = new Date(targetYear + 1, 0, 1);
+
+      // 获取该年度的提交数据
+      const submissions = await this.prisma.submission.findMany({
+        where: {
+          assignment: { institutionId },
+          submittedAt: { gte: startDate, lt: endDate },
+        },
+        select: { submittedAt: true },
+      });
+
+      // 按月统计提交数
+      const monthlyMap = new Map<string, number>();
+      for (const sub of submissions) {
+        const yearPart = sub.submittedAt.getFullYear();
+        const monthPart = String(sub.submittedAt.getMonth() + 1).padStart(2, '0');
+        const key = `${yearPart}-${monthPart}`;
+        monthlyMap.set(key, (monthlyMap.get(key) || 0) + 1);
+      }
+
+      // 生成 12 个月的数据
+      const result: { month: string; amount: number }[] = [];
+      for (let m = 1; m <= 12; m++) {
+        const monthStr = `${targetYear}-${String(m).padStart(2, '0')}`;
+        const count = monthlyMap.get(monthStr) || 0;
+        result.push({ month: monthStr, amount: count * 100 });
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error('获取营收趋势失败', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取班级对比数据
+   * @param institutionId 机构 ID
+   * @returns 各班级的学生数、平均分、及格率
+   */
+  async getClassComparison(
+    institutionId: string,
+  ): Promise<{
+    className: string;
+    studentCount: number;
+    avgScore: number;
+    passRate: number;
+  }[]> {
+    try {
+      const classes = await this.prisma.class.findMany({
+        where: { institutionId, status: 1 },
+        select: {
+          id: true,
+          name: true,
+          _count: { select: { classStudents: true } },
+          assignments: {
+            select: {
+              submissions: {
+                where: { score: { not: null } },
+                select: { score: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (classes.length === 0) {
+        return [];
+      }
+
+      return classes.map((cls) => {
+        let totalScore = 0;
+        let scoreCount = 0;
+        let passCount = 0;
+
+        for (const assignment of cls.assignments) {
+          for (const submission of assignment.submissions) {
+            const score = Number(submission.score);
+            totalScore += score;
+            scoreCount++;
+            if (score >= 60) passCount++;
+          }
+        }
+
+        return {
+          className: cls.name,
+          studentCount: cls._count.classStudents,
+          avgScore: scoreCount > 0 ? Number((totalScore / scoreCount).toFixed(2)) : 0,
+          passRate: scoreCount > 0 ? Number(((passCount / scoreCount) * 100).toFixed(2)) : 0,
+        };
+      });
+    } catch (error) {
+      this.logger.error('获取班级对比数据失败', error);
+      return [];
+    }
   }
 }
