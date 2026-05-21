@@ -75,7 +75,7 @@ model User {
   attendances         Attendance[] @relation("TeacherAttendances")
   
   // Student relations
-  studentClasses      ClassStudent[]
+  studentClasses      ClassStudent[] @relation("StudentClasses")
   submissions         Submission[] @relation("StudentSubmissions")
   
   // Parent relations
