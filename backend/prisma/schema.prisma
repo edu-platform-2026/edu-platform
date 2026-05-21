@@ -1,0 +1,458 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// 机构表
+// ========================================
+model Institution {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String    @db.VarChar(200)
+  logoUrl       String?   @map("logo_url") @db.VarChar(500)
+  description   String?   @db.Text
+  slogan        String?   @db.VarChar(500)
+  address       String?   @db.VarChar(500)
+  phone         String?   @db.VarChar(50)
+  email         String?   @db.VarChar(100)
+  wechat        String?   @db.VarChar(100)
+  website       String?   @db.VarChar(300)
+  businessHours String?   @map("business_hours") @db.VarChar(200)
+  status        Int       @default(1) @db.SmallInt
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamp()
+
+  // Relations
+  users         User[]
+  roles         Role[]
+  classes       Class[]
+  courses       Course[]
+  assignments   Assignment[]
+  resources     Resource[]
+  notifications Notification[]
+  feedbacks     Feedback[]
+
+  @@map("institutions")
+}
+
+// ========================================
+// 用户表
+// ========================================
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  username      String    @db.VarChar(100)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  realName      String    @map("real_name") @db.VarChar(50)
+  phone         String?   @unique @db.VarChar(20)
+  email         String?   @db.VarChar(100)
+  avatarUrl     String?   @map("avatar_url") @db.VarChar(500)
+  gender        Int       @default(0) @db.SmallInt
+  status        Int       @default(1) @db.SmallInt
+  lastLoginAt   DateTime? @map("last_login_at") @db.Timestamp()
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamp()
+
+  // Relations
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  userRoles     UserRole[]
+  
+  // Teacher relations
+  teachingCourses     Course[]     @relation("TeacherCourses")
+  createdAssignments  Assignment[] @relation("TeacherAssignments")
+  uploadedResources   Resource[]   @relation("UploaderResources")
+  sentNotifications   Notification[] @relation("SenderNotifications")
+  gradedSubmissions   Submission[] @relation("GraderSubmissions")
+  homeroomClasses     Class[]      @relation("HomeroomTeacher")
+  attendances         Attendance[] @relation("TeacherAttendances")
+  
+  // Student relations
+  studentClasses      ClassStudent[]
+  submissions         Submission[] @relation("StudentSubmissions")
+  
+  // Parent relations
+  parentClasses       ClassStudent[] @relation("ParentClasses")
+  feedbacks           Feedback[]     @relation("ParentFeedbacks")
+  repliedFeedbacks    Feedback[]     @relation("RepliedFeedbacks")
+  
+  // Notification reads
+  notificationReads   NotificationRead[]
+
+  @@index([institutionId])
+  @@index([phone])
+  @@map("users")
+}
+
+// ========================================
+// 角色表
+// ========================================
+model Role {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String?   @map("institution_id") @db.Uuid
+  code          String    @db.VarChar(50)
+  name          String    @db.VarChar(50)
+  description   String?   @db.VarChar(200)
+  isSystem      Boolean   @default(false) @map("is_system")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  // Relations
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  userRoles     UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([institutionId, code])
+  @@map("roles")
+}
+
+// ========================================
+// 权限表
+// ========================================
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  code        String @unique @db.VarChar(100)
+  name        String @db.VarChar(100)
+  module      String @db.VarChar(50)
+  description String? @db.VarChar(200)
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+// ========================================
+// 角色-权限关联表
+// ========================================
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ========================================
+// 用户-角色关联表
+// ========================================
+model UserRole {
+  userId     String    @map("user_id") @db.Uuid
+  roleId     String    @map("role_id") @db.Uuid
+  assignedAt DateTime  @default(now()) @map("assigned_at") @db.Timestamp()
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ========================================
+// 班级表
+// ========================================
+model Class {
+  id                String    @id @default(uuid()) @db.Uuid
+  institutionId     String    @map("institution_id") @db.Uuid
+  name              String    @db.VarChar(100)
+  grade             String?   @db.VarChar(50)
+  description       String?   @db.VarChar(500)
+  homeroomTeacherId String?   @map("homeroom_teacher_id") @db.Uuid
+  maxStudents       Int       @default(50)
+  status            Int       @default(1) @db.SmallInt
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamp()
+
+  // Relations
+  institution     Institution  @relation(fields: [institutionId], references: [id])
+  homeroomTeacher User?        @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
+  classStudents   ClassStudent[]
+  courses         Course[]
+  assignments     Assignment[]
+
+  @@index([institutionId])
+  @@map("classes")
+}
+
+// ========================================
+// 班级-学生关联表
+// ========================================
+model ClassStudent {
+  classId    String    @map("class_id") @db.Uuid
+  studentId  String    @map("student_id") @db.Uuid
+  parentId   String?   @map("parent_id") @db.Uuid
+  enrolledAt DateTime  @default(now()) @map("enrolled_at") @db.Timestamp()
+
+  // Relations
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student User  @relation("StudentClasses", fields: [studentId], references: [id], onDelete: Cascade)
+  parent  User? @relation("ParentClasses", fields: [parentId], references: [id])
+
+  @@id([classId, studentId])
+  @@map("class_students")
+}
+
+// ========================================
+// 课程表
+// ========================================
+model Course {
+  id             String    @id @default(uuid()) @db.Uuid
+  institutionId  String    @map("institution_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  teacherId      String    @map("teacher_id") @db.Uuid
+  name           String    @db.VarChar(200)
+  subject        String?   @db.VarChar(100)
+  description    String?   @db.Text
+  totalHours     Int       @default(0) @map("total_hours")
+  completedHours Int       @default(0) @map("completed_hours")
+  status         Int       @default(1) @db.SmallInt
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamp()
+
+  // Relations
+  institution Institution @relation(fields: [institutionId], references: [id])
+  class       Class       @relation(fields: [classId], references: [id])
+  teacher     User        @relation("TeacherCourses", fields: [teacherId], references: [id])
+  schedules   Schedule[]
+  attendances Attendance[]
+  assignments Assignment[]
+
+  @@index([institutionId])
+  @@index([classId])
+  @@index([teacherId])
+  @@map("courses")
+}
+
+// ========================================
+// 课表/排课表
+// ========================================
+model Schedule {
+  id             String    @id @default(uuid()) @db.Uuid
+  courseId       String    @map("course_id") @db.Uuid
+  dayOfWeek      Int       @map("day_of_week") @db.SmallInt
+  startTime      DateTime  @map("start_time") @db.Time()
+  endTime        DateTime  @map("end_time") @db.Time()
+  room           String?   @db.VarChar(100)
+  effectiveFrom  DateTime  @map("effective_from") @db.Date()
+  effectiveUntil DateTime? @map("effective_until") @db.Date()
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  // Relations
+  course      Course       @relation(fields: [courseId], references: [id])
+  attendances Attendance[]
+
+  @@index([courseId])
+  @@map("schedules")
+}
+
+// ========================================
+// 上课记录表
+// ========================================
+model Attendance {
+  id          String    @id @default(uuid()) @db.Uuid
+  scheduleId  String    @map("schedule_id") @db.Uuid
+  courseId     String    @map("course_id") @db.Uuid
+  teacherId   String    @map("teacher_id") @db.Uuid
+  actualDate  DateTime  @map("actual_date") @db.Date()
+  startTime   DateTime? @map("start_time") @db.Time()
+  endTime     DateTime? @map("end_time") @db.Time()
+  status      Int       @default(1) @db.SmallInt
+  feedback    String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  // Relations
+  schedule  Schedule @relation(fields: [scheduleId], references: [id])
+  course    Course   @relation(fields: [courseId], references: [id])
+  teacher   User     @relation("TeacherAttendances", fields: [teacherId], references: [id])
+
+  @@index([scheduleId])
+  @@index([courseId])
+  @@map("attendances")
+}
+
+// ========================================
+// 作业表
+// ========================================
+model Assignment {
+  id             String    @id @default(uuid()) @db.Uuid
+  institutionId  String    @map("institution_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  courseId       String?   @map("course_id") @db.Uuid
+  teacherId      String    @map("teacher_id") @db.Uuid
+  title          String    @db.VarChar(300)
+  description    String?   @db.Text
+  type           Int       @db.SmallInt
+  subject        String?   @db.VarChar(100)
+  attachments    Json?     @db.JsonB
+  dueDate        DateTime? @map("due_date") @db.Timestamp()
+  maxScore       Decimal   @default(100) @map("max_score") @db.Decimal(5, 2)
+  status         Int       @default(1) @db.SmallInt
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamp()
+
+  // Relations
+  institution Institution @relation(fields: [institutionId], references: [id])
+  class       Class       @relation(fields: [classId], references: [id])
+  course      Course?     @relation(fields: [courseId], references: [id])
+  teacher     User        @relation("TeacherAssignments", fields: [teacherId], references: [id])
+  submissions Submission[]
+
+  @@index([institutionId])
+  @@index([classId])
+  @@index([type])
+  @@index([dueDate])
+  @@map("assignments")
+}
+
+// ========================================
+// 作业提交表
+// ========================================
+model Submission {
+  id           String    @id @default(uuid()) @db.Uuid
+  assignmentId String    @map("assignment_id") @db.Uuid
+  studentId    String    @map("student_id") @db.Uuid
+  content      String?   @db.Text
+  attachments  Json?     @db.JsonB
+  score        Decimal?  @db.Decimal(5, 2)
+  grade        String?   @db.VarChar(20)
+  comment      String?   @db.Text
+  status       Int       @default(1) @db.SmallInt
+  submittedAt  DateTime  @default(now()) @map("submitted_at") @db.Timestamp()
+  gradedAt     DateTime? @map("graded_at") @db.Timestamp()
+  gradedBy     String?   @map("graded_by") @db.Uuid
+
+  // Relations
+  assignment Assignment @relation(fields: [assignmentId], references: [id])
+  student    User       @relation("StudentSubmissions", fields: [studentId], references: [id])
+  grader     User?      @relation("GraderSubmissions", fields: [gradedBy], references: [id])
+
+  @@unique([assignmentId, studentId])
+  @@map("submissions")
+}
+
+// ========================================
+// 教学资源表
+// ========================================
+model Resource {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  uploaderId    String    @map("uploader_id") @db.Uuid
+  title         String    @db.VarChar(300)
+  description   String?   @db.Text
+  category      String?   @db.VarChar(100)
+  subject       String?   @db.VarChar(100)
+  fileUrl       String    @map("file_url") @db.VarChar(500)
+  fileSize      BigInt?   @map("file_size")
+  fileType      String?   @map("file_type") @db.VarChar(50)
+  thumbnailUrl  String?   @map("thumbnail_url") @db.VarChar(500)
+  downloadCount Int       @default(0) @map("download_count")
+  isPublic      Boolean   @default(false) @map("is_public")
+  tags          Json?     @db.JsonB
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamp()
+
+  // Relations
+  institution Institution @relation(fields: [institutionId], references: [id])
+  uploader    User        @relation("UploaderResources", fields: [uploaderId], references: [id])
+
+  @@index([institutionId])
+  @@map("resources")
+}
+
+// ========================================
+// 通知表
+// ========================================
+model Notification {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  senderId      String    @map("sender_id") @db.Uuid
+  title         String    @db.VarChar(300)
+  content       String    @db.Text
+  type          Int       @db.SmallInt
+  targetRole    String?   @map("target_role") @db.VarChar(50)
+  targetUsers   Json?     @map("target_users") @db.JsonB
+  attachments   Json?     @db.JsonB
+  isUrgent      Boolean   @default(false) @map("is_urgent")
+  publishedAt   DateTime? @map("published_at") @db.Timestamp()
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  // Relations
+  institution    Institution       @relation(fields: [institutionId], references: [id])
+  sender         User              @relation("SenderNotifications", fields: [senderId], references: [id])
+  notificationReads NotificationRead[]
+
+  @@index([institutionId])
+  @@map("notifications")
+}
+
+// ========================================
+// 通知已读状态表
+// ========================================
+model NotificationRead {
+  notificationId String   @map("notification_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  readAt         DateTime @default(now()) @map("read_at") @db.Timestamp()
+
+  // Relations
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([notificationId, userId])
+  @@map("notification_reads")
+}
+
+// ========================================
+// 家长反馈表
+// ========================================
+model Feedback {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  parentId      String    @map("parent_id") @db.Uuid
+  teacherId     String?   @map("teacher_id") @db.Uuid
+  category      String?   @db.VarChar(50)
+  title         String?   @db.VarChar(300)
+  content       String    @db.Text
+  attachments   Json?     @db.JsonB
+  status        Int       @default(1) @db.SmallInt
+  reply         String?   @db.Text
+  repliedBy     String?   @map("replied_by") @db.Uuid
+  repliedAt     DateTime? @map("replied_at") @db.Timestamp()
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamp()
+
+  // Relations
+  institution Institution @relation(fields: [institutionId], references: [id])
+  parent      User        @relation("ParentFeedbacks", fields: [parentId], references: [id])
+  teacher     User?       @relation(fields: [teacherId], references: [id])
+  replier     User?       @relation("RepliedFeedbacks", fields: [repliedBy], references: [id])
+
+  @@index([institutionId])
+  @@map("feedbacks")
+}
+
+// ========================================
+// 学习进度表
+// ========================================
+model LearningProgress {
+  id                   String  @id @default(uuid()) @db.Uuid
+  studentId            String  @map("student_id") @db.Uuid
+  courseId             String  @map("course_id") @db.Uuid
+  totalAssignments     Int     @default(0) @map("total_assignments")
+  completedAssignments Int     @default(0) @map("completed_assignments")
+  averageScore         Decimal? @map("average_score") @db.Decimal(5, 2)
+  attendanceRate       Decimal? @map("attendance_rate") @db.Decimal(5, 2)
+  lastUpdated          DateTime @default(now()) @map("last_updated") @db.Timestamp()
+
+  @@unique([studentId, courseId])
+  @@map("learning_progress")
+}
