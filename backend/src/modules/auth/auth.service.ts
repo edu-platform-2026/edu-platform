@@ -6,9 +6,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
-import { InvitationsService } from '../invitations/invitations.service';
 import { RegisterDto } from './dto/register.dto';
 
 /**
@@ -35,7 +34,6 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private invitationsService: InvitationsService,
   ) {}
 
   /**
@@ -159,7 +157,7 @@ export class AuthService {
    * @returns 创建的用户信息
    */
   async register(registerDto: RegisterDto) {
-    const { username, password, realName, phone, email, gender, institutionId, role, invitationCode } = registerDto;
+    const { username, password, realName, phone, email, gender, institutionId, role } = registerDto;
 
     // 检查用户名是否已存在
     const existingUser = await this.prisma.user.findFirst({
@@ -244,17 +242,6 @@ export class AuthService {
 
       return newUser;
     });
-
-    // 如果提供了邀请码，使用邀请码
-    if (invitationCode) {
-      try {
-        await this.invitationsService.useCode(invitationCode, user.id);
-        this.logger.log(`邀请码 ${invitationCode} 已被用户 ${username} 使用`);
-      } catch (error) {
-        this.logger.warn(`邀请码使用失败: ${error.message}`);
-        // 邀请码使用失败不影响注册流程
-      }
-    }
 
     this.logger.log(`用户注册成功: ${username}`);
 
