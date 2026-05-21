@@ -126,15 +126,15 @@ export class FeedbackService {
     const feedback = await this.prisma.feedback.create({
       data: {
         institutionId,
-        userId,
+        parentId: userId,
         title: dto.title,
         content: dto.content,
-        type: dto.type,
+        category: dto.type ? String(dto.type) : undefined,
         attachments: dto.attachments || undefined,
         status: 1, // 默认待处理
       },
       include: {
-        user: {
+        parent: {
           select: {
             id: true,
             realName: true,
@@ -176,7 +176,7 @@ export class FeedbackService {
       data: {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.content !== undefined && { content: data.content }),
-        ...(data.type !== undefined && { type: data.type }),
+        ...(data.type !== undefined && { category: String(data.type) }),
         ...(data.status !== undefined && { status: data.status }),
       },
     });
@@ -211,7 +211,7 @@ export class FeedbackService {
    * @param feedbackId 反馈 ID
    * @param replierId 回复者 ID
    * @param dto 回复数据
-   * @returns 回复记录
+   * @returns 更新后的反馈记录
    */
   async reply(feedbackId: string, replierId: string, dto: ReplyFeedbackDto) {
     const feedback = await this.prisma.feedback.findUnique({
@@ -222,34 +222,25 @@ export class FeedbackService {
       throw new NotFoundException(`反馈不存在: ${feedbackId}`);
     }
 
-    // 使用事务同时创建回复和更新反馈状态
-    const result = await this.prisma.$transaction(async (tx) => {
-      // 创建回复
-      const reply = await tx.feedbackReply.create({
-        data: {
-          feedbackId,
-          replierId,
-          content: dto.content,
-        },
-        include: {
-          replier: {
-            select: {
-              id: true,
-              realName: true,
-              avatarUrl: true,
-            },
+    // 更新反馈的回复内容和状态
+    const newStatus = dto.status || 3; // 默认已回复
+    const result = await this.prisma.feedback.update({
+      where: { id: feedbackId },
+      data: {
+        reply: dto.content,
+        repliedBy: replierId,
+        repliedAt: new Date(),
+        status: newStatus,
+      },
+      include: {
+        replier: {
+          select: {
+            id: true,
+            realName: true,
+            avatarUrl: true,
           },
         },
-      });
-
-      // 更新反馈状态
-      const newStatus = dto.status || 3; // 默认已回复
-      await tx.feedback.update({
-        where: { id: feedbackId },
-        data: { status: newStatus },
-      });
-
-      return reply;
+      },
     });
 
     this.logger.log(`反馈 ${feedbackId} 已回复`);
