@@ -14,7 +14,7 @@ export const databaseConfig = registerAs('database', () => ({
   /** MinIO 对象存储配置 */
   minio: {
     endpoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: parseInt(process.env.MINIO_PORT, 10) || 9000,
+    port: parseInt(process.env.MINIO_PORT || '9000', 10) || 9000,
     accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
     secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin123',
     bucket: process.env.MINIO_BUCKET || 'edu-platform',
