@@ -73,7 +73,7 @@ export class AnalyticsService {
       where: {
         user: { institutionId, status: 1 },
       },
-      _count: { id: true },
+      _count: { userId: true },
     });
 
     // 获取角色名称
@@ -87,7 +87,7 @@ export class AnalyticsService {
       roleId: rd.roleId,
       roleName: roleMap.get(rd.roleId)?.name || '未知',
       roleCode: roleMap.get(rd.roleId)?.code || 'unknown',
-      count: (rd._count as { id: number }).id,
+      count: (rd._count as { userId: number }).userId,
     }));
 
     return {
