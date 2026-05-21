@@ -17,10 +17,10 @@ async function main() {
   // ==================== 1. 创建默认机构 ====================
   console.log('1. 创建默认机构...');
   const institution = await prisma.institution.upsert({
-    where: { id: 'default-institution-id' },
+    where: { id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' },
     update: {},
     create: {
-      id: 'default-institution-id',
+      id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       name: '示范教育机构',
       description: '这是一个示范教育管理机构，用于系统初始化。',
       slogan: '用心教育，成就未来',
