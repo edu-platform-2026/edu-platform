@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: edu-platform-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: singapore
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: "7d"
+      - key: PORT
+        value: "3000"
+    healthCheckPath: /api/v1/health
