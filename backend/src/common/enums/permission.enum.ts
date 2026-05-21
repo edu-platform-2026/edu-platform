@@ -102,6 +102,10 @@ export enum Permission {
   /** 查看成绩统计 */
   ANALYTICS_SCORES = 'analytics:scores',
 
+  // ==================== Statistics Module Permissions ====================
+  /** View statistics */
+  STATISTICS_READ = 'statistics:read',
+
   // ==================== 用户模块权限 ====================
   /** 创建用户 */
   USER_CREATE = 'user:create',
@@ -203,6 +207,9 @@ export const PERMISSION_GROUPS: Record<string, Permission[]> = {
     Permission.USER_MANAGE_STATUS,
     Permission.USER_RESET_PASSWORD,
     Permission.USER_EXPORT,
+  ],
+  statistics: [
+    Permission.STATISTICS_READ,
   ],
   institution: [
     Permission.INSTITUTION_CREATE,
