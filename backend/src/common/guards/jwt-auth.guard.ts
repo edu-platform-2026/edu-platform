@@ -1,54 +1,82 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable } from 'rxjs';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
- * JWT 认证守卫
- * 继承 Passport 的 AuthGuard，使用 'jwt' 策略
- * 支持 @Public() 装饰器跳过认证
+ * JWT 认证守卫（简化版）
+ *
+ * 只验证 token 签名和有效期，不查数据库
+ * 用户信息直接从 token payload 中获取
  */
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
-  constructor(private reflector: Reflector) {
-    super();
-  }
+export class JwtAuthGuard implements CanActivate {
+  private readonly logger = new Logger(JwtAuthGuard.name);
 
-  /**
-   * 判断请求是否可以被激活
-   * 如果路由标记了 @Public()，则跳过认证
-   */
-  canActivate(
-    context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
-    // 检查路由或控制器是否标记为公开
+  constructor(
+    private reflector: Reflector,
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    // 检查是否标记为公开路由
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    // 如果是公开路由，直接放行
     if (isPublic) {
       return true;
     }
 
-    // 否则执行 JWT 认证
-    return super.canActivate(context);
+    const request = context.switchToHttp().getRequest();
+
+    // 提取 token
+    const token = this.extractTokenFromHeader(request);
+    if (!token) {
+      throw new UnauthorizedException('未提供认证令牌');
+    }
+
+    try {
+      // 验证 token（同步，不查数据库）
+      const secret = this.configService.get<string>('JWT_SECRET', 'your-super-secret-jwt-key-2026');
+      const payload = this.jwtService.verify(token, { secret });
+
+      // 将 payload 中的用户信息附加到 request 对象
+      request.user = {
+        id: payload.sub,
+        username: payload.username,
+        institutionId: payload.institutionId,
+        role: payload.roles?.[0] || 'STUDENT',
+        roles: payload.roles || [],
+        permissions: payload.permissions || [],
+      };
+
+      return true;
+    } catch (error) {
+      this.logger.warn(`JWT 验证失败: ${error.message}`);
+      throw new UnauthorizedException('认证令牌无效或已过期');
+    }
   }
 
   /**
-   * 处理认证错误
+   * 从请求头提取 Bearer token
    */
-  handleRequest<TUser = any>(
-    err: any,
-    user: TUser,
-    info: any,
-    context: ExecutionContext,
-  ): TUser {
-    if (err || !user) {
-      throw err || new Error('认证失败，请重新登录');
-    }
-    return user;
+  private extractTokenFromHeader(request: any): string | undefined {
+    const authHeader = request.headers?.authorization;
+    if (!authHeader) return undefined;
+
+    const [type, token] = authHeader.split(' ');
+    if (type !== 'Bearer' || !token) return undefined;
+
+    return token;
   }
 }
