@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { APP_GUARD } from '@nestjs/core';
+import { join } from 'path';
 
 import { appConfig } from './config/app.config';
 import { databaseConfig } from './config/database.config';
@@ -27,12 +29,18 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
  */
 @Module({
   imports: [
+    // 静态文件服务 - 前端构建产物
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
+      exclude: ['/api/(.*)', '/docs', '/docs/(.*)'],
+    }),
+
     // 全局配置模块 - 加载环境变量和配置文件
     ConfigModule.forRoot({
-      isGlobal: true, // 全局可用，无需在每个模块中重复导入
+      isGlobal: true,
       envFilePath: '.env',
       load: [appConfig, databaseConfig, jwtConfig],
-      cache: true, // 缓存配置，提高性能
+      cache: true,
     }),
 
     // 定时任务模块
