@@ -78,7 +78,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       if (!this.onlineUsers.has(payload.sub)) {
         this.onlineUsers.set(payload.sub, new Set());
       }
-      this.onlineUsers.get(payload.sub).add(client.id);
+      this.onlineUsers.get(payload.sub)?.add(client.id);
 
       client.join(`institution:${payload.institutionId}`);
       client.join(`user:${payload.sub}`);
@@ -98,8 +98,8 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     const userId = client.data?.userId;
 
     if (userId && this.onlineUsers.has(userId)) {
-      this.onlineUsers.get(userId).delete(client.id);
-      if (this.onlineUsers.get(userId).size === 0) {
+      this.onlineUsers.get(userId)?.delete(client.id);
+      if (this.onlineUsers.get(userId)?.size === 0) {
         this.onlineUsers.delete(userId);
       }
     }
