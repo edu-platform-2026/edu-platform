@@ -87,7 +87,7 @@ export class AnalyticsService {
       roleId: rd.roleId,
       roleName: roleMap.get(rd.roleId)?.name || '未知',
       roleCode: roleMap.get(rd.roleId)?.code || 'unknown',
-      count: rd._count.id,
+      count: (rd._count as { id: number }).id,
     }));
 
     return {
@@ -326,7 +326,7 @@ export class AnalyticsService {
 
     // 反馈统计
     const feedbackCount = await this.prisma.feedback.count({
-      where: { userId: studentId },
+      where: { parentId: studentId },
     });
 
     return {
