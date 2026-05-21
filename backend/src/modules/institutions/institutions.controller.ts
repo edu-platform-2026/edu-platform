@@ -29,6 +29,23 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { Role } from '../../common/enums/role.enum';
 import { Permission } from '../../common/enums/permission.enum';
 
+// Declare Express.Multer types for file upload support
+declare namespace Express {
+  namespace Multer {
+    interface File {
+      fieldname: string;
+      originalname: string;
+      encoding: string;
+      mimetype: string;
+      size: number;
+      destination: string;
+      filename: string;
+      path: string;
+      buffer: Buffer;
+    }
+  }
+}
+
 /**
  * 机构管理控制器
  * 处理机构信息查询、更新、Logo 上传等请求
