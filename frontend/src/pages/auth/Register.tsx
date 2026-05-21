@@ -19,7 +19,7 @@ const { Title, Text } = Typography;
 const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { register, isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const registerFn = useAuthStore((state) => state.register);
 
   const onFinish = async (values: {
