@@ -31,7 +31,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
   imports: [
     // 静态文件服务 - 前端构建产物
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'frontend', 'dist'),
+      rootPath: join(__dirname, '..', '..', '..', 'frontend', 'dist'),
       exclude: ['/api/(.*)', '/docs', '/docs/(.*)'],
     }),
 
