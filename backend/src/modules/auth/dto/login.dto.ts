@@ -56,3 +56,41 @@ export class LoginResponseDto {
     institutionId: string;
   };
 }
+
+/**
+ * 淇敼瀵嗙爜璇锋眰 DTO
+ */
+export class ChangePasswordDto {
+  @ApiProperty({
+    description: '褰撳墠瀵嗙爜',
+    example: 'oldPassword123',
+  })
+  @IsNotEmpty({ message: '褰撳墠瀵嗙爜涓嶈兘涓虹┖' })
+  @IsString({ message: '褰撳墠瀵嗙爜蹇呴』鏄瓧绗︿覆' })
+  oldPassword: string;
+
+  @ApiProperty({
+    description: '鏂板瘑鐮?,
+    example: 'newPassword123',
+    minLength: 6,
+    maxLength: 50,
+  })
+  @IsNotEmpty({ message: '鏂板瘑鐮佷笉鑳戒负绌? })
+  @IsString({ message: '鏂板瘑鐮佸繀椤绘槸瀛楃涓? })
+  @MinLength(6, { message: '鏂板瘑鐮侀暱搴︿笉鑳藉皯浜?6 涓瓧绗? })
+  @MaxLength(50, { message: '鏂板瘑鐮侀暱搴︿笉鑳借秴杩?50 涓瓧绗? })
+  newPassword: string;
+}
+
+/**
+ * 鍒锋柊浠ょ墝璇锋眰 DTO
+ */
+export class RefreshTokenDto {
+  @ApiProperty({
+    description: '鍒锋柊浠ょ墝',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  @IsNotEmpty({ message: '鍒锋柊浠ょ墝涓嶈兘涓虹┖' })
+  @IsString({ message: '鍒锋柊浠ょ墝蹇呴』鏄瓧绗︿覆' })
+  refreshToken: string;
+}
