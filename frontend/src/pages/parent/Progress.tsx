@@ -29,7 +29,7 @@ const ParentProgress: React.FC = () => {
     setLoading(true);
     try {
       const response = await analyticsService.getStudentProgress('1');
-      setCourseProgress(response.data || []);
+      setCourseProgress((response.data || []).map((item: any) => ({ ...item, trend: item.trend || 'stable' as const })));
     } catch {
       setCourseProgress([
         { courseName: '高等数学', progress: 75, avgScore: 82, assignmentCount: 8, trend: 'up' },
