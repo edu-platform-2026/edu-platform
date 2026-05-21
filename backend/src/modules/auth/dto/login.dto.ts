@@ -2,60 +2,60 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
 
 /**
- * 鐧诲綍璇锋眰 DTO
- * 鍖呭惈鐢ㄦ埛鍚嶅拰瀵嗙爜瀛楁
+ * 登录请求 DTO
+ * 包含用户名和密码字段
  */
 export class LoginDto {
   @ApiProperty({
-    description: '鐢ㄦ埛鍚?,
+    description: '用户名',
     example: 'admin',
     minLength: 2,
     maxLength: 100,
   })
-  @IsNotEmpty({ message: '鐢ㄦ埛鍚嶄笉鑳戒负绌? })
-  @IsString({ message: '鐢ㄦ埛鍚嶅繀椤绘槸瀛楃涓? })
-  @MinLength(2, { message: '鐢ㄦ埛鍚嶉暱搴︿笉鑳藉皯浜?2 涓瓧绗? })
-  @MaxLength(100, { message: '鐢ㄦ埛鍚嶉暱搴︿笉鑳借秴杩?100 涓瓧绗? })
+  @IsNotEmpty({ message: '用户名不能为空' })
+  @IsString({ message: '用户名必须是字符串' })
+  @MinLength(2, { message: '用户名长度不能少于 2 个字符' })
+  @MaxLength(100, { message: '用户名长度不能超过 100 个字符' })
   username: string;
 
   @ApiProperty({
-    description: '瀵嗙爜',
+    description: '密码',
     example: 'password123',
     minLength: 6,
     maxLength: 50,
   })
-  @IsNotEmpty({ message: '瀵嗙爜涓嶈兘涓虹┖' })
-  @IsString({ message: '瀵嗙爜蹇呴』鏄瓧绗︿覆' })
-  @MinLength(6, { message: '瀵嗙爜闀垮害涓嶈兘灏戜簬 6 涓瓧绗? })
-  @MaxLength(50, { message: '瀵嗙爜闀垮害涓嶈兘瓒呰繃 50 涓瓧绗? })
+  @IsNotEmpty({ message: '密码不能为空' })
+  @IsString({ message: '密码必须是字符串' })
+  @MinLength(6, { message: '密码长度不能少于 6 个字符' })
+  @MaxLength(50, { message: '密码长度不能超过 50 个字符' })
   password: string;
 
   @ApiPropertyOptional({
-    description: '鐧诲綍瑙掕壊锛堝彲閫夛紝鐢ㄤ簬鍓嶇瑙掕壊閫夋嫨锛?,
+    description: '登录角色（可选，用于前端角色选择）',
     example: 'ADMIN',
   })
   @IsOptional()
-  @IsString({ message: '瑙掕壊蹇呴』鏄瓧绗︿覆' })
+  @IsString({ message: '角色必须是字符串' })
   role?: string;
 }
 
 /**
- * 鐧诲綍鍝嶅簲鏁版嵁鎺ュ彛
+ * 登录响应数据接口
  */
 export class LoginResponseDto {
-  @ApiProperty({ description: '璁块棶浠ょ墝' })
+  @ApiProperty({ description: '访问令牌' })
   accessToken: string;
 
-  @ApiProperty({ description: '鍒锋柊浠ょ墝' })
+  @ApiProperty({ description: '刷新令牌' })
   refreshToken: string;
 
-  @ApiProperty({ description: '浠ょ墝绫诲瀷', example: 'Bearer' })
+  @ApiProperty({ description: '令牌类型', example: 'Bearer' })
   tokenType: string;
 
-  @ApiProperty({ description: '杩囨湡鏃堕棿锛堢锛? })
+  @ApiProperty({ description: '过期时间（秒）' })
   expiresIn: number;
 
-  @ApiProperty({ description: '鐢ㄦ埛淇℃伅' })
+  @ApiProperty({ description: '用户信息' })
   user: {
     id: string;
     username: string;
@@ -66,38 +66,38 @@ export class LoginResponseDto {
 }
 
 /**
- * 鍒锋柊浠ょ墝璇锋眰 DTO
+ * 刷新令牌请求 DTO
  */
 export class RefreshTokenDto {
   @ApiProperty({
-    description: '鍒锋柊浠ょ墝',
+    description: '刷新令牌',
     example: 'your-refresh-token-here',
   })
-  @IsNotEmpty({ message: '鍒锋柊浠ょ墝涓嶈兘涓虹┖' })
-  @IsString({ message: '鍒锋柊浠ょ墝蹇呴』鏄瓧绗︿覆' })
+  @IsNotEmpty({ message: '刷新令牌不能为空' })
+  @IsString({ message: '刷新令牌必须是字符串' })
   refreshToken: string;
 }
 
 /**
- * 淇敼瀵嗙爜璇锋眰 DTO
+ * 修改密码请求 DTO
  */
 export class ChangePasswordDto {
   @ApiProperty({
-    description: '褰撳墠瀵嗙爜',
+    description: '当前密码',
     example: 'oldPassword123',
   })
-  @IsNotEmpty({ message: '褰撳墠瀵嗙爜涓嶈兘涓虹┖' })
-  @IsString({ message: '褰撳墠瀵嗙爜蹇呴』鏄瓧绗︿覆' })
-  @MinLength(6, { message: '瀵嗙爜闀垮害涓嶈兘灏戜簬 6 涓瓧绗? })
+  @IsNotEmpty({ message: '当前密码不能为空' })
+  @IsString({ message: '当前密码必须是字符串' })
+  @MinLength(6, { message: '密码长度不能少于 6 个字符' })
   currentPassword: string;
 
   @ApiProperty({
-    description: '鏂板瘑鐮?,
+    description: '新密码',
     example: 'newPassword123',
   })
-  @IsNotEmpty({ message: '鏂板瘑鐮佷笉鑳戒负绌? })
-  @IsString({ message: '鏂板瘑鐮佸繀椤绘槸瀛楃涓? })
-  @MinLength(6, { message: '鏂板瘑鐮侀暱搴︿笉鑳藉皯浜?6 涓瓧绗? })
-  @MaxLength(50, { message: '鏂板瘑鐮侀暱搴︿笉鑳借秴杩?50 涓瓧绗? })
+  @IsNotEmpty({ message: '新密码不能为空' })
+  @IsString({ message: '新密码必须是字符串' })
+  @MinLength(6, { message: '新密码长度不能少于 6 个字符' })
+  @MaxLength(50, { message: '新密码长度不能超过 50 个字符' })
   newPassword: string;
 }
