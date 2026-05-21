@@ -22,7 +22,8 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 /**
- * 璁よ瘉鎺у埗鍣? * 澶勭悊鐢ㄦ埛璁よ瘉鐩稿叧鐨?HTTP 璇锋眰
+ * 认证控制器
+ * 处理用户认证相关的 HTTP 请求
  */
 @ApiTags('auth')
 @Controller('auth')
@@ -30,82 +31,82 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   /**
-   * 鐢ㄦ埛鐧诲綍
+   * 用户登录
    */
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '鐢ㄦ埛鐧诲綍',
-    description: '浣跨敤鐢ㄦ埛鍚嶅拰瀵嗙爜杩涜鐧诲綍锛岃繑鍥?JWT 浠ょ墝',
+    summary: '用户登录',
+    description: '使用用户名和密码进行登录，返回 JWT 令牌',
   })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
     status: 200,
-    description: '鐧诲綍鎴愬姛',
+    description: '登录成功',
     type: LoginResponseDto,
   })
-  @ApiResponse({ status: 401, description: '鐢ㄦ埛鍚嶆垨瀵嗙爜閿欒' })
+  @ApiResponse({ status: 401, description: '用户名或密码错误' })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto.username, loginDto.password);
   }
 
   /**
-   * 鐢ㄦ埛娉ㄥ唽
+   * 用户注册
    */
   @Public()
   @Post('register')
   @ApiOperation({
-    summary: '鐢ㄦ埛娉ㄥ唽',
-    description: '鍒涘缓鏂扮敤鎴疯处鍙?,
+    summary: '用户注册',
+    description: '创建新用户账号',
   })
-  @ApiResponse({ status: 201, description: '娉ㄥ唽鎴愬姛' })
-  @ApiResponse({ status: 409, description: '鐢ㄦ埛鍚嶆垨鎵嬫満鍙峰凡瀛樺湪' })
+  @ApiResponse({ status: 201, description: '注册成功' })
+  @ApiResponse({ status: 409, description: '用户名或手机号已存在' })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   /**
-   * 鍒锋柊浠ょ墝
+   * 刷新令牌
    */
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '鍒锋柊浠ょ墝',
-    description: '浣跨敤鍒锋柊浠ょ墝鑾峰彇鏂扮殑璁块棶浠ょ墝',
+    summary: '刷新令牌',
+    description: '使用刷新令牌获取新的访问令牌',
   })
-  @ApiResponse({ status: 200, description: '浠ょ墝鍒锋柊鎴愬姛' })
-  @ApiResponse({ status: 401, description: '鍒锋柊浠ょ墝鏃犳晥鎴栧凡杩囨湡' })
+  @ApiResponse({ status: 200, description: '令牌刷新成功' })
+  @ApiResponse({ status: 401, description: '刷新令牌无效或已过期' })
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto.refreshToken);
   }
 
   /**
-   * 鑾峰彇褰撳墠鐢ㄦ埛淇℃伅
+   * 获取当前用户信息
    */
   @Get('profile')
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: '鑾峰彇涓汉淇℃伅',
-    description: '鑾峰彇褰撳墠鐧诲綍鐢ㄦ埛鐨勮缁嗕俊鎭?,
+    summary: '获取个人信息',
+    description: '获取当前登录用户的详细信息',
   })
-  @ApiResponse({ status: 200, description: '鑾峰彇鎴愬姛' })
-  @ApiResponse({ status: 401, description: '鏈璇? })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 401, description: '未认证' })
   async getProfile(@CurrentUser('id') userId: string) {
     return this.authService.getProfile(userId);
   }
 
   /**
-   * 鏇存柊涓汉淇℃伅
+   * 更新个人信息
    */
   @Put('profile')
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: '鏇存柊涓汉淇℃伅',
-    description: '鏇存柊褰撳墠鐧诲綍鐢ㄦ埛鐨勫熀鏈俊鎭?,
+    summary: '更新个人信息',
+    description: '更新当前登录用户的基本信息',
   })
-  @ApiResponse({ status: 200, description: '鏇存柊鎴愬姛' })
+  @ApiResponse({ status: 200, description: '更新成功' })
   async updateProfile(
     @CurrentUser('id') userId: string,
     @Body() updateData: { realName?: string; email?: string; phone?: string; avatarUrl?: string },
@@ -114,17 +115,17 @@ export class AuthController {
   }
 
   /**
-   * 淇敼瀵嗙爜
+   * 修改密码
    */
   @Put('password')
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '淇敼瀵嗙爜',
-    description: '淇敼褰撳墠鐧诲綍鐢ㄦ埛鐨勫瘑鐮?,
+    summary: '修改密码',
+    description: '修改当前登录用户的密码',
   })
-  @ApiResponse({ status: 200, description: '瀵嗙爜淇敼鎴愬姛' })
-  @ApiResponse({ status: 401, description: '褰撳墠瀵嗙爜涓嶆纭? })
+  @ApiResponse({ status: 200, description: '密码修改成功' })
+  @ApiResponse({ status: 401, description: '当前密码不正确' })
   async changePassword(
     @CurrentUser('id') userId: string,
     @Body() changePasswordDto: ChangePasswordDto,
