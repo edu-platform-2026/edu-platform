@@ -82,6 +82,7 @@ model User {
   parentClasses       ClassStudent[] @relation("ParentClasses")
   feedbacks           Feedback[]     @relation("ParentFeedbacks")
   repliedFeedbacks    Feedback[]     @relation("RepliedFeedbacks")
+  teacherFeedbacks   Feedback[]     @relation("TeacherFeedbacks")
   
   // Notification reads
   notificationReads   NotificationRead[]
@@ -434,7 +435,7 @@ model Feedback {
   // Relations
   institution Institution @relation(fields: [institutionId], references: [id])
   parent      User        @relation("ParentFeedbacks", fields: [parentId], references: [id])
-  teacher     User?       @relation(fields: [teacherId], references: [id])
+  teacher     User?       @relation("TeacherFeedbacks", fields: [teacherId], references: [id])
   replier     User?       @relation("RepliedFeedbacks", fields: [repliedBy], references: [id])
 
   @@index([institutionId])
