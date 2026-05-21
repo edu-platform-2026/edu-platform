@@ -5,7 +5,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto, createPaginatedResult } from '../../common/dto/pagination.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -36,7 +36,7 @@ export class UsersService {
       role?: string;
     },
   ) {
-    const { page, pageSize, sortBy = 'createdAt', sortOrder } = paginationDto;
+    const { page = 1, pageSize = 10, sortBy = 'createdAt', sortOrder = 'desc' } = paginationDto || {};
 
     // 构建查询条件
     const where: any = {};
@@ -45,8 +45,8 @@ export class UsersService {
       where.institutionId = filters.institutionId;
     }
 
-    if (filters?.status !== undefined) {
-      where.status = filters.status;
+    if (filters?.status != null && filters?.status !== '' && !isNaN(Number(filters.status))) {
+      where.status = Number(filters.status);
     }
 
     if (filters?.keyword) {
