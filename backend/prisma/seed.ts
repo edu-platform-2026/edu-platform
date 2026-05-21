@@ -36,50 +36,46 @@ async function main() {
 
   // ==================== 2. 创建默认角色 ====================
   console.log('2. 创建默认角色...');
-  const roles = await Promise.all([
-    prisma.role.upsert({
-      where: { institutionId_code: { institutionId: null, code: 'ADMIN' } },
-      update: {},
-      create: {
-        name: '管理员',
-        code: 'ADMIN',
-        description: '系统管理员，拥有所有权限',
-        isSystem: true,
-      },
-    }),
-    prisma.role.upsert({
-      where: { institutionId_code: { institutionId: null, code: 'TEACHER' } },
-      update: {},
-      create: {
-        name: '教师',
-        code: 'TEACHER',
-        description: '教师角色，拥有教学相关权限',
-        isSystem: true,
-      },
-    }),
-    prisma.role.upsert({
-      where: { institutionId_code: { institutionId: null, code: 'PARENT' } },
-      update: {},
-      create: {
-        name: '家长',
-        code: 'PARENT',
-        description: '家长角色，可查看学生信息',
-        isSystem: true,
-      },
-    }),
-    prisma.role.upsert({
-      where: { institutionId_code: { institutionId: null, code: 'STUDENT' } },
-      update: {},
-      create: {
-        name: '学生',
-        code: 'STUDENT',
-        description: '学生角色，可提交作业和查看课程',
-        isSystem: true,
-      },
-    }),
-  ]);
+  // System roles are created BEFORE any institution exists,
+  // so we use findFirst + conditional create instead of upsert with compound unique.
+  let adminRole = await prisma.role.findFirst({
+    where: { code: 'ADMIN', institutionId: null },
+  });
+  if (!adminRole) {
+    adminRole = await prisma.role.create({
+      data: { code: 'ADMIN', name: '管理员', description: '系统管理员，拥有所有权限', isSystem: true },
+    });
+  }
 
-  const roleMap = new Map(roles.map((r) => [r.code, r]));
+  let teacherRole = await prisma.role.findFirst({
+    where: { code: 'TEACHER', institutionId: null },
+  });
+  if (!teacherRole) {
+    teacherRole = await prisma.role.create({
+      data: { code: 'TEACHER', name: '教师', description: '教师角色，拥有教学相关权限', isSystem: true },
+    });
+  }
+
+  let parentRole = await prisma.role.findFirst({
+    where: { code: 'PARENT', institutionId: null },
+  });
+  if (!parentRole) {
+    parentRole = await prisma.role.create({
+      data: { code: 'PARENT', name: '家长', description: '家长角色，可查看学生信息', isSystem: true },
+    });
+  }
+
+  let studentRole = await prisma.role.findFirst({
+    where: { code: 'STUDENT', institutionId: null },
+  });
+  if (!studentRole) {
+    studentRole = await prisma.role.create({
+      data: { code: 'STUDENT', name: '学生', description: '学生角色，可提交作业和查看课程', isSystem: true },
+    });
+  }
+
+  const roles = [adminRole, teacherRole, parentRole, studentRole];
+
   console.log(`   角色创建成功: ${roles.map((r) => r.name).join(', ')}\n`);
 
   // ==================== 3. 创建默认权限 ====================
@@ -501,7 +497,6 @@ async function main() {
   console.log('4. 关联角色和权限...');
 
   // 管理员：拥有所有权限
-  const adminRole = roleMap.get('ADMIN');
   const adminPermissions = permissions.map((p) => ({
     roleId: adminRole!.id,
     permissionId: p.id,
@@ -535,7 +530,6 @@ async function main() {
     'STATISTICS_READ',
   ];
 
-  const teacherRole = roleMap.get('TEACHER');
   const teacherPermissions = teacherPermissionCodes
     .filter((code) => permissionMap.has(code))
     .map((code) => ({
@@ -555,7 +549,6 @@ async function main() {
     'FEEDBACK_CREATE',
   ];
 
-  const parentRole = roleMap.get('PARENT');
   const parentPermissions = parentPermissionCodes
     .filter((code) => permissionMap.has(code))
     .map((code) => ({
@@ -577,7 +570,6 @@ async function main() {
     'STATISTICS_READ',
   ];
 
-  const studentRole = roleMap.get('STUDENT');
   const studentPermissions = studentPermissionCodes
     .filter((code) => permissionMap.has(code))
     .map((code) => ({
@@ -621,7 +613,7 @@ async function main() {
     create: {
       institutionId: institution.id,
       username: 'admin',
-      password_hash: hashedPassword,
+      passwordHash: hashedPassword,
       realName: '系统管理员',
       email: 'admin@demo-edu.com',
       phone: '13800138000',
