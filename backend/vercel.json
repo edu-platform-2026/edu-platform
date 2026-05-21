@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "installCommand": "npm install && npx prisma generate && npx nest build",
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "dist/**",
+          "node_modules/.prisma/**",
+          "node_modules/@prisma/client/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/index.js" },
+    { "src": "/docs(.*)", "dest": "api/index.js" },
+    { "src": "/(.*)", "dest": "api/index.js" }
+  ]
+}
