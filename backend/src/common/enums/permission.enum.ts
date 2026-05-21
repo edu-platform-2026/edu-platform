@@ -83,6 +83,8 @@ export enum Permission {
   FEEDBACK_READ = 'feedback:read',
   /** 回复反馈 */
   FEEDBACK_REPLY = 'feedback:reply',
+  /** 更新反馈 */
+  FEEDBACK_UPDATE = 'feedback:update',
   /** 删除反馈 */
   FEEDBACK_DELETE = 'feedback:delete',
   /** 管理反馈 */
