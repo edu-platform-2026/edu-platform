@@ -199,9 +199,6 @@ export class AuthService {
       throw new ConflictException('机构不存在');
     }
 
-    // 此时 finalInstitutionId 一定有值
-    const institutionId = finalInstitutionId as string;
-
     // 加密密码
     const passwordHash = await bcrypt.hash(password, this.saltRounds);
 
@@ -216,7 +213,7 @@ export class AuthService {
           phone,
           email,
           gender: gender || 0,
-          institutionId: institutionId,
+          institutionId: finalInstitutionId!,
           status: 1,
         },
       });
@@ -227,7 +224,7 @@ export class AuthService {
           where: {
             code: role,
             OR: [
-              { institutionId: institutionId },
+              { institutionId: finalInstitutionId! },
               { isSystem: true },
             ],
           },
