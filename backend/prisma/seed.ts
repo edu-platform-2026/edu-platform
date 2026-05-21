@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -38,47 +38,43 @@ async function main() {
   console.log('2. 创建默认角色...');
   const roles = await Promise.all([
     prisma.role.upsert({
-      where: { code: 'ADMIN' },
+      where: { institutionId_code: { institutionId: null, code: 'ADMIN' } },
       update: {},
       create: {
         name: '管理员',
         code: 'ADMIN',
         description: '系统管理员，拥有所有权限',
         isSystem: true,
-        status: 1,
       },
     }),
     prisma.role.upsert({
-      where: { code: 'TEACHER' },
+      where: { institutionId_code: { institutionId: null, code: 'TEACHER' } },
       update: {},
       create: {
         name: '教师',
         code: 'TEACHER',
         description: '教师角色，拥有教学相关权限',
         isSystem: true,
-        status: 1,
       },
     }),
     prisma.role.upsert({
-      where: { code: 'PARENT' },
+      where: { institutionId_code: { institutionId: null, code: 'PARENT' } },
       update: {},
       create: {
         name: '家长',
         code: 'PARENT',
         description: '家长角色，可查看学生信息',
         isSystem: true,
-        status: 1,
       },
     }),
     prisma.role.upsert({
-      where: { code: 'STUDENT' },
+      where: { institutionId_code: { institutionId: null, code: 'STUDENT' } },
       update: {},
       create: {
         name: '学生',
         code: 'STUDENT',
         description: '学生角色，可提交作业和查看课程',
         isSystem: true,
-        status: 1,
       },
     }),
   ]);
@@ -620,17 +616,16 @@ async function main() {
   const hashedPassword = await bcrypt.hash('admin123', saltRounds);
 
   const adminUser = await prisma.user.upsert({
-    where: { username: 'admin' },
+    where: { phone: '13800138000' },
     update: {},
     create: {
       institutionId: institution.id,
       username: 'admin',
-      password: hashedPassword,
+      password_hash: hashedPassword,
       realName: '系统管理员',
       email: 'admin@demo-edu.com',
       phone: '13800138000',
       gender: 0,
-      status: 1,
     },
   });
 
