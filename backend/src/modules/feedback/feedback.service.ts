@@ -53,7 +53,7 @@ export class FeedbackService {
 
     if (filters?.type) where.type = filters.type;
     if (filters?.status !== undefined) where.status = filters.status;
-    if (filters?.userId) where.userId = filters.userId;
+    if (filters?.userId) where.parentId = filters.userId;
 
     if (filters?.keyword) {
       where.OR = [
@@ -71,25 +71,13 @@ export class FeedbackService {
         take: pageSize,
         orderBy,
         include: {
-          user: {
+          parent: {
             select: {
               id: true,
               username: true,
               realName: true,
               avatarUrl: true,
             },
-          },
-          replies: {
-            include: {
-              replier: {
-                select: {
-                  id: true,
-                  realName: true,
-                  avatarUrl: true,
-                },
-              },
-            },
-            orderBy: { createdAt: 'asc' },
           },
         },
       }),
@@ -108,7 +96,7 @@ export class FeedbackService {
     const feedback = await this.prisma.feedback.findUnique({
       where: { id },
       include: {
-        user: {
+        parent: {
           select: {
             id: true,
             username: true,
@@ -116,18 +104,6 @@ export class FeedbackService {
             avatarUrl: true,
             phone: true,
           },
-        },
-        replies: {
-          include: {
-            replier: {
-              select: {
-                id: true,
-                realName: true,
-                avatarUrl: true,
-              },
-            },
-          },
-          orderBy: { createdAt: 'asc' },
         },
       },
     });
@@ -290,7 +266,7 @@ export class FeedbackService {
   async findMyFeedbacks(userId: string, paginationDto: PaginationDto) {
     const { page, pageSize } = paginationDto;
 
-    const where = { userId };
+    const where = { parentId: userId };
 
     const [feedbacks, total] = await Promise.all([
       this.prisma.feedback.findMany({
@@ -299,16 +275,11 @@ export class FeedbackService {
         take: pageSize,
         orderBy: { createdAt: 'desc' },
         include: {
-          replies: {
-            include: {
-              replier: {
-                select: {
-                  id: true,
-                  realName: true,
-                },
-              },
+          replier: {
+            select: {
+              id: true,
+              realName: true,
             },
-            orderBy: { createdAt: 'asc' },
           },
         },
       }),
