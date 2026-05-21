@@ -181,6 +181,7 @@ export const PERMISSION_GROUPS: Record<string, Permission[]> = {
     Permission.FEEDBACK_CREATE,
     Permission.FEEDBACK_READ,
     Permission.FEEDBACK_REPLY,
+    Permission.FEEDBACK_UPDATE,
     Permission.FEEDBACK_DELETE,
     Permission.FEEDBACK_MANAGE,
   ],
