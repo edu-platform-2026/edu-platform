@@ -6,8 +6,9 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { InvitationsService } from '../invitations/invitations.service';
 import { RegisterDto } from './dto/register.dto';
 
 /**
@@ -17,6 +18,8 @@ interface TokenPayload {
   sub: string;
   username: string;
   institutionId: string;
+  roles?: string[];
+  permissions?: string[];
 }
 
 /**
@@ -32,6 +35,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private invitationsService: InvitationsService,
   ) {}
 
   /**
@@ -50,7 +54,15 @@ export class AuthService {
       include: {
         userRoles: {
           include: {
-            role: true,
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -80,9 +92,18 @@ export class AuthService {
 
     // 返回用户信息（排除密码）
     const { passwordHash, ...result } = user;
+    const roles = user.userRoles.map((ur) => ur.role.code);
+    const permissions = [
+      ...new Set(
+        user.userRoles.flatMap((ur) =>
+          ur.role.rolePermissions.map((rp: any) => rp.permission.code),
+        ),
+      ),
+    ];
     return {
       ...result,
-      roles: user.userRoles.map((ur) => ur.role.code),
+      roles,
+      permissions,
     };
   }
 
@@ -100,23 +121,34 @@ export class AuthService {
       throw new UnauthorizedException('用户名或密码错误');
     }
 
-    // 生成令牌
+    // 生成令牌（payload 中包含角色和权限信息，供 JwtAuthGuard 使用）
     const tokens = await this.generateTokens({
       sub: user.id,
       username: user.username,
       institutionId: user.institutionId,
+      roles: user.roles,
+      permissions: user.permissions,
     });
 
     this.logger.log(`用户登录成功: ${username}`);
 
+    // 返回前端期望的数据格式
     return {
-      ...tokens,
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      token_type: tokens.tokenType,
+      expires_in: tokens.expiresIn,
       user: {
         id: user.id,
         username: user.username,
+        name: user.realName,           // 前端期望 name 字段
         realName: user.realName,
+        role: user.roles[0] || 'STUDENT',  // 取第一个角色作为主角色
         roles: user.roles,
         institutionId: user.institutionId,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatarUrl,
       },
     };
   }
@@ -127,7 +159,7 @@ export class AuthService {
    * @returns 创建的用户信息
    */
   async register(registerDto: RegisterDto) {
-    const { username, password, realName, phone, email, gender, institutionId, role } = registerDto;
+    const { username, password, realName, phone, email, gender, institutionId, role, invitationCode } = registerDto;
 
     // 检查用户名是否已存在
     const existingUser = await this.prisma.user.findFirst({
@@ -149,9 +181,20 @@ export class AuthService {
       }
     }
 
-    // 检查机构是否存在
+    // 检查机构是否存在（不传则使用默认机构）
+    let finalInstitutionId = institutionId;
+    if (!finalInstitutionId) {
+      const defaultInstitution = await this.prisma.institution.findFirst({
+        where: { status: 1 },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (defaultInstitution) {
+        finalInstitutionId = defaultInstitution.id;
+      }
+    }
+
     const institution = await this.prisma.institution.findUnique({
-      where: { id: institutionId },
+      where: { id: finalInstitutionId },
     });
 
     if (!institution) {
@@ -172,7 +215,7 @@ export class AuthService {
           phone,
           email,
           gender: gender || 0,
-          institutionId,
+          institutionId: finalInstitutionId,
           status: 1,
         },
       });
@@ -183,7 +226,7 @@ export class AuthService {
           where: {
             code: role,
             OR: [
-              { institutionId },
+              { institutionId: finalInstitutionId },
               { isSystem: true },
             ],
           },
@@ -201,6 +244,17 @@ export class AuthService {
 
       return newUser;
     });
+
+    // 如果提供了邀请码，使用邀请码
+    if (invitationCode) {
+      try {
+        await this.invitationsService.useCode(invitationCode, user.id);
+        this.logger.log(`邀请码 ${invitationCode} 已被用户 ${username} 使用`);
+      } catch (error) {
+        this.logger.warn(`邀请码使用失败: ${error.message}`);
+        // 邀请码使用失败不影响注册流程
+      }
+    }
 
     this.logger.log(`用户注册成功: ${username}`);
 
@@ -230,11 +284,13 @@ export class AuthService {
         throw new UnauthorizedException('用户不存在或已被禁用');
       }
 
-      // 生成新的令牌对
+      // 生成新的令牌对（保留原 payload 中的角色和权限）
       const tokens = await this.generateTokens({
         sub: user.id,
         username: user.username,
         institutionId: user.institutionId,
+        roles: payload.roles,
+        permissions: payload.permissions,
       });
 
       this.logger.log(`令牌刷新成功: ${user.username}`);
@@ -300,8 +356,47 @@ export class AuthService {
 
     return {
       ...userInfo,
-      roles,
+      name: user.realName,            // 前端期望 name 字段
+      role: roles[0] || 'STUDENT',    // 主角色（取第一个）
+      roles,                          // 所有角色
+      avatar: user.avatarUrl,         // 前端期望 avatar 字段
       permissions,
+    };
+  }
+
+  /**
+   * 更新个人信息
+   * @param userId 用户 ID
+   * @param updateData 要更新的字段
+   */
+  async updateProfile(
+    userId: string,
+    updateData: { realName?: string; email?: string; phone?: string; avatarUrl?: string },
+  ) {
+    const data: any = {};
+    if (updateData.realName !== undefined) data.realName = updateData.realName;
+    if (updateData.email !== undefined) data.email = updateData.email;
+    if (updateData.phone !== undefined) data.phone = updateData.phone;
+    if (updateData.avatarUrl !== undefined) data.avatarUrl = updateData.avatarUrl;
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        username: true,
+        realName: true,
+        email: true,
+        phone: true,
+        avatarUrl: true,
+        status: true,
+      },
+    });
+
+    return {
+      ...user,
+      name: user.realName,
+      avatar: user.avatarUrl,
     };
   }
 
