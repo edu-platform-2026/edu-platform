@@ -78,13 +78,13 @@ export class RegisterDto {
   @IsOptional()
   gender?: number;
 
-  @ApiProperty({
-    description: '所属机构 ID',
+  @ApiPropertyOptional({
+    description: '所属机构 ID（不传则使用默认机构）',
     example: 'uuid-string',
   })
-  @IsNotEmpty({ message: '所属机构不能为空' })
+  @IsOptional()
   @IsString({ message: '机构 ID 必须是字符串' })
-  institutionId: string;
+  institutionId?: string;
 
   @ApiPropertyOptional({
     description: '用户角色',
@@ -94,6 +94,14 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(Role, { message: '角色类型不正确' })
   role?: Role;
+
+  @ApiPropertyOptional({
+    description: '邀请码（可选，使用邀请码注册时传入）',
+    example: 'A1B2C3D4',
+  })
+  @IsOptional()
+  @IsString({ message: '邀请码必须是字符串' })
+  invitationCode?: string;
 }
 
 /**
