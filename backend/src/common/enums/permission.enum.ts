@@ -81,10 +81,10 @@ export enum Permission {
   FEEDBACK_CREATE = 'feedback:create',
   /** 查看反馈 */
   FEEDBACK_READ = 'feedback:read',
-  /** 更新反馈 */
-  FEEDBACK_UPDATE = 'feedback:update',
   /** 回复反馈 */
   FEEDBACK_REPLY = 'feedback:reply',
+  /** 更新反馈 */
+  FEEDBACK_UPDATE = 'feedback:update',
   /** 删除反馈 */
   FEEDBACK_DELETE = 'feedback:delete',
   /** 管理反馈 */
@@ -132,29 +132,23 @@ export enum Permission {
   /** 管理机构设置 */
   INSTITUTION_MANAGE = 'institution:manage',
 
-  // ==================== 站内消息模块权限 ====================
+  // ==================== 消息模块权限 ====================
   /** 发送消息 */
   MESSAGE_CREATE = 'message:create',
   /** 查看消息 */
   MESSAGE_READ = 'message:read',
   /** 删除消息 */
   MESSAGE_DELETE = 'message:delete',
+  /** 管理消息 */
+  MESSAGE_MANAGE = 'message:manage',
 
-  // ==================== 操作日志模块权限 ====================
-  /** 查看操作日志 */
-  OPERATION_LOG_READ = 'operation_log:read',
-
-  // ==================== 缴费模块权限 ====================
-  /** 创建缴费 */
-  PAYMENT_CREATE = 'payment:create',
-  /** 查看缴费 */
-  PAYMENT_READ = 'payment:read',
-  /** 更新缴费 */
-  PAYMENT_UPDATE = 'payment:update',
-  /** 删除缴费 */
-  PAYMENT_DELETE = 'payment:delete',
-  /** 确认缴费 */
-  PAYMENT_PAY = 'payment:pay',
+  // ==================== 邀请模块权限 ====================
+  /** 创建邀请 */
+  INVITATION_CREATE = 'invitation:create',
+  /** 查看邀请 */
+  INVITATION_READ = 'invitation:read',
+  /** 删除邀请 */
+  INVITATION_DELETE = 'invitation:delete',
 }
 
 /**
@@ -207,6 +201,7 @@ export const PERMISSION_GROUPS: Record<string, Permission[]> = {
     Permission.FEEDBACK_CREATE,
     Permission.FEEDBACK_READ,
     Permission.FEEDBACK_REPLY,
+    Permission.FEEDBACK_UPDATE,
     Permission.FEEDBACK_DELETE,
     Permission.FEEDBACK_MANAGE,
   ],
@@ -238,15 +233,11 @@ export const PERMISSION_GROUPS: Record<string, Permission[]> = {
     Permission.MESSAGE_CREATE,
     Permission.MESSAGE_READ,
     Permission.MESSAGE_DELETE,
+    Permission.MESSAGE_MANAGE,
   ],
-  operation_log: [
-    Permission.OPERATION_LOG_READ,
-  ],
-  payment: [
-    Permission.PAYMENT_CREATE,
-    Permission.PAYMENT_READ,
-    Permission.PAYMENT_UPDATE,
-    Permission.PAYMENT_DELETE,
-    Permission.PAYMENT_PAY,
+  invitation: [
+    Permission.INVITATION_CREATE,
+    Permission.INVITATION_READ,
+    Permission.INVITATION_DELETE,
   ],
 };
