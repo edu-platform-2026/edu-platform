@@ -14,8 +14,10 @@ interface ApiMessage {
   id: string;
   senderId: string;
   senderName: string;
+  sender?: { id: string; username: string; realName: string; avatarUrl?: string };
   receiverId: string;
   receiverName: string;
+  receiver?: { id: string; username: string; realName: string; avatarUrl?: string };
   content: string;
   isRead: boolean;
   createdAt: string;
@@ -38,6 +40,14 @@ interface UserSearchResult {
   avatarUrl?: string;
 }
 
+/** 安全提取名称字符串，防止后端返回对象 */
+function extractName(val: any, fallback: string = '未知用户'): string {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return val.realName || val.name || val.username || fallback;
+  return fallback;
+}
+
 const Messages: React.FC = () => {
   const { user } = useAuthStore();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -50,7 +60,6 @@ const Messages: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUserId = user?.id;
 
-  // 添加联系人弹窗
   const [addContactVisible, setAddContactVisible] = useState(false);
   const [userSearchKeyword, setUserSearchKeyword] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<UserSearchResult[]>([]);
@@ -69,7 +78,10 @@ const Messages: React.FC = () => {
       items.forEach((msg: ApiMessage) => {
         const isSelf = msg.senderId === currentUserId;
         const contactId = isSelf ? msg.receiverId : msg.senderId;
-        const contactName = isSelf ? msg.receiverName : msg.senderName;
+        // 安全提取联系人名称：优先用对象中的 realName，再用扁平字段
+        const contactName = isSelf
+          ? extractName(msg.receiver || msg.receiverName)
+          : extractName(msg.sender || msg.senderName);
 
         if (!grouped[contactId]) grouped[contactId] = [];
         grouped[contactId].push(msg);
@@ -77,7 +89,7 @@ const Messages: React.FC = () => {
         if (!contactMap[contactId]) {
           contactMap[contactId] = {
             id: contactId,
-            name: contactName || '未知用户',
+            name: contactName,
             lastMessage: msg.content,
             lastTime: msg.createdAt,
             unread: 0,
@@ -117,7 +129,6 @@ const Messages: React.FC = () => {
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [selectedContact, messagesMap]);
 
-  // 搜索用户（添加联系人）
   const handleSearchUsers = async (keyword: string) => {
     if (!keyword || keyword.length < 2) {
       setUserSearchResults([]);
@@ -139,17 +150,16 @@ const Messages: React.FC = () => {
         }));
       setUserSearchResults(results);
     } catch {
-      // 静默处理
+      // 静默
     } finally {
       setSearchingUsers(false);
     }
   };
 
-  // 添加联系人并开始聊天
   const handleAddContact = (targetUser: UserSearchResult) => {
-    const existingContact = contacts.find(c => c.id === targetUser.id);
-    if (existingContact) {
-      setSelectedContact(existingContact);
+    const existing = contacts.find(c => c.id === targetUser.id);
+    if (existing) {
+      setSelectedContact(existing);
     } else {
       const newContact: Contact = {
         id: targetUser.id,
@@ -261,12 +271,7 @@ const Messages: React.FC = () => {
                 allowClear
                 style={{ flex: 1 }}
               />
-              <Button
-                icon={<UserAddOutlined />}
-                onClick={() => setAddContactVisible(true)}
-                title="添加联系人"
-                type="primary"
-              />
+              <Button icon={<UserAddOutlined />} onClick={() => setAddContactVisible(true)} title="添加联系人" type="primary" />
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
               {filteredContacts.length > 0 ? filteredContacts.map(contact => (
@@ -293,9 +298,7 @@ const Messages: React.FC = () => {
               )) : (
                 <div style={{ padding: 24, textAlign: 'center' }}>
                   <Empty description="暂无消息" />
-                  <Button type="link" icon={<UserAddOutlined />} onClick={() => setAddContactVisible(true)}>
-                    添加联系人开始聊天
-                  </Button>
+                  <Button type="link" icon={<UserAddOutlined />} onClick={() => setAddContactVisible(true)}>添加联系人开始聊天</Button>
                 </div>
               )}
             </div>
@@ -305,23 +308,22 @@ const Messages: React.FC = () => {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {selectedContact ? (
               <>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center' }}>
                   <Space>
                     <Avatar icon={<UserOutlined />} />
-                    <div>
-                      <Text strong>{selectedContact.name}</Text>
-                      {selectedContact.role && <Tag color="blue" style={{ marginLeft: 8, fontSize: 11 }}>{selectedContact.role}</Tag>}
-                    </div>
+                    <Text strong>{selectedContact.name}</Text>
+                    {selectedContact.role && <Tag color="blue" style={{ fontSize: 11 }}>{selectedContact.role}</Tag>}
                   </Space>
                 </div>
                 <div style={{ flex: 1, overflow: 'auto', padding: '16px', background: '#fafafa' }}>
                   {currentMessages.length > 0 ? currentMessages.map(msg => {
                     const isSelf = msg.senderId === currentUserId;
+                    const senderDisplayName = isSelf ? '我' : extractName(msg.sender || msg.senderName);
                     return (
                       <div key={msg.id} style={{ display: 'flex', justifyContent: isSelf ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
                         <div style={{ maxWidth: '70%' }}>
                           <div style={{ fontSize: 12, color: '#999', marginBottom: 4, textAlign: isSelf ? 'right' : 'left' }}>
-                            {isSelf ? '我' : msg.senderName} {formatTime(msg.createdAt)}
+                            {senderDisplayName} {formatTime(msg.createdAt)}
                           </div>
                           <div style={{
                             padding: '8px 12px', borderRadius: 12,
@@ -350,9 +352,7 @@ const Messages: React.FC = () => {
                     style={{ flex: 1 }}
                     disabled={sending}
                   />
-                  <Button type="primary" icon={<SendOutlined />} onClick={handleSend} loading={sending} disabled={!inputValue.trim()}>
-                    发送
-                  </Button>
+                  <Button type="primary" icon={<SendOutlined />} onClick={handleSend} loading={sending} disabled={!inputValue.trim()}>发送</Button>
                 </div>
               </>
             ) : (
@@ -372,17 +372,12 @@ const Messages: React.FC = () => {
         footer={null}
         width={450}
       >
-        <div style={{ marginBottom: 12 }}>
-          <Text type="secondary">搜索用户姓名或用户名来添加联系人</Text>
-        </div>
+        <div style={{ marginBottom: 12 }}><Text type="secondary">搜索用户姓名或用户名来添加联系人</Text></div>
         <Input
           prefix={<SearchOutlined />}
           placeholder="输入姓名或用户名搜索..."
           value={userSearchKeyword}
-          onChange={e => {
-            setUserSearchKeyword(e.target.value);
-            handleSearchUsers(e.target.value);
-          }}
+          onChange={e => { setUserSearchKeyword(e.target.value); handleSearchUsers(e.target.value); }}
           allowClear
           style={{ marginBottom: 16 }}
           size="large"
@@ -396,21 +391,12 @@ const Messages: React.FC = () => {
               <List.Item
                 style={{ cursor: 'pointer', padding: '8px 12px', borderRadius: 8 }}
                 onClick={() => handleAddContact(item)}
-                actions={[
-                  <Button type="primary" size="small" icon={<PlusOutlined />}>
-                    添加
-                  </Button>
-                ]}
+                actions={[<Button type="primary" size="small" icon={<PlusOutlined />}>添加</Button>]}
               >
                 <List.Item.Meta
                   avatar={<Avatar icon={<UserOutlined />} style={{ background: '#1677ff' }} />}
                   title={item.realName}
-                  description={
-                    <Space>
-                      <Text type="secondary" style={{ fontSize: 12 }}>@{item.username}</Text>
-                      {item.role && <Tag color="blue" style={{ fontSize: 11 }}>{item.role}</Tag>}
-                    </Space>
-                  }
+                  description={<Space><Text type="secondary" style={{ fontSize: 12 }}>@{item.username}</Text>{item.role && <Tag color="blue" style={{ fontSize: 11 }}>{item.role}</Tag>}</Space>}
                 />
               </List.Item>
             )}
