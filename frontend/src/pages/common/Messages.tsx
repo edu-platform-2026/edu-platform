@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Card, List, Avatar, Input, Button, Badge, Space, Tag, Empty, Typography, Spin, message, Modal, Select,
+  Card, List, Avatar, Input, Button, Badge, Space, Tag, Empty, Typography, Spin, message, Modal,
 } from 'antd';
 import {
-  SendOutlined, UserOutlined, SearchOutlined, PlusOutlined, TeamOutlined,
+  SendOutlined, UserOutlined, SearchOutlined, PlusOutlined, TeamOutlined, UserAddOutlined,
 } from '@ant-design/icons';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
@@ -50,8 +50,8 @@ const Messages: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUserId = user?.id;
 
-  // New chat modal state
-  const [newChatVisible, setNewChatVisible] = useState(false);
+  // 添加联系人弹窗
+  const [addContactVisible, setAddContactVisible] = useState(false);
   const [userSearchKeyword, setUserSearchKeyword] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<UserSearchResult[]>([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
@@ -77,7 +77,7 @@ const Messages: React.FC = () => {
         if (!contactMap[contactId]) {
           contactMap[contactId] = {
             id: contactId,
-            name: contactName || 'Unknown',
+            name: contactName || '未知用户',
             lastMessage: msg.content,
             lastTime: msg.createdAt,
             unread: 0,
@@ -107,8 +107,8 @@ const Messages: React.FC = () => {
       if (contactList.length > 0 && !selectedContact) {
         setSelectedContact(contactList[0]);
       }
-    } catch (err) {
-      message.error('Failed to load messages');
+    } catch {
+      message.error('加载消息失败');
     } finally {
       setLoading(false);
     }
@@ -117,7 +117,7 @@ const Messages: React.FC = () => {
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [selectedContact, messagesMap]);
 
-  // Search users for new chat
+  // 搜索用户（添加联系人）
   const handleSearchUsers = async (keyword: string) => {
     if (!keyword || keyword.length < 2) {
       setUserSearchResults([]);
@@ -139,15 +139,14 @@ const Messages: React.FC = () => {
         }));
       setUserSearchResults(results);
     } catch {
-      // Silent fail
+      // 静默处理
     } finally {
       setSearchingUsers(false);
     }
   };
 
-  // Start new chat with a user
-  const handleStartChat = (targetUser: UserSearchResult) => {
-    // Check if contact already exists
+  // 添加联系人并开始聊天
+  const handleAddContact = (targetUser: UserSearchResult) => {
     const existingContact = contacts.find(c => c.id === targetUser.id);
     if (existingContact) {
       setSelectedContact(existingContact);
@@ -163,9 +162,10 @@ const Messages: React.FC = () => {
       setContacts(prev => [newContact, ...prev]);
       setSelectedContact(newContact);
     }
-    setNewChatVisible(false);
+    setAddContactVisible(false);
     setUserSearchKeyword('');
     setUserSearchResults([]);
+    message.success(`已添加联系人：${targetUser.realName}`);
   };
 
   const markAsRead = async (contactId: string) => {
@@ -202,7 +202,7 @@ const Messages: React.FC = () => {
       const newMsg: ApiMessage = res?.data || {
         id: Date.now().toString(),
         senderId: currentUserId || '',
-        senderName: user?.name || 'Me',
+        senderName: user?.name || '我',
         receiverId: selectedContact.id,
         receiverName: selectedContact.name,
         content: inputValue.trim(),
@@ -219,8 +219,8 @@ const Messages: React.FC = () => {
           : c
       ));
       setInputValue('');
-    } catch (err) {
-      message.error('Failed to send');
+    } catch {
+      message.error('发送失败');
     } finally {
       setSending(false);
     }
@@ -242,26 +242,31 @@ const Messages: React.FC = () => {
   };
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: 100 }}><Spin size="large" /></div>;
+    return <div style={{ textAlign: 'center', padding: 100 }}><Spin size="large" tip="加载中..." /></div>;
   }
 
   return (
     <div>
-      <h2 style={{ marginBottom: 16 }}>Messages</h2>
+      <h2 style={{ marginBottom: 16 }}>消息中心</h2>
       <Card bordered={false} bodyStyle={{ padding: 0 }} style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', height: '100%' }}>
-          {/* Left: Contact list */}
+          {/* 左侧：联系人列表 */}
           <div style={{ width: 300, borderRight: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 8 }}>
               <Input
                 prefix={<SearchOutlined />}
-                placeholder="Search contacts"
+                placeholder="搜索联系人"
                 value={searchValue}
                 onChange={e => setSearchValue(e.target.value)}
                 allowClear
                 style={{ flex: 1 }}
               />
-              <Button icon={<PlusOutlined />} onClick={() => setNewChatVisible(true)} title="New Chat" />
+              <Button
+                icon={<UserAddOutlined />}
+                onClick={() => setAddContactVisible(true)}
+                title="添加联系人"
+                type="primary"
+              />
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
               {filteredContacts.length > 0 ? filteredContacts.map(contact => (
@@ -282,21 +287,21 @@ const Messages: React.FC = () => {
                       <Text strong ellipsis style={{ maxWidth: 120 }}>{contact.name}</Text>
                       <Text type="secondary" style={{ fontSize: 12 }}>{formatTime(contact.lastTime)}</Text>
                     </div>
-                    <Text type="secondary" ellipsis style={{ fontSize: 13 }}>{contact.lastMessage || 'Start chatting...'}</Text>
+                    <Text type="secondary" ellipsis style={{ fontSize: 13 }}>{contact.lastMessage || '暂无消息'}</Text>
                   </div>
                 </div>
               )) : (
                 <div style={{ padding: 24, textAlign: 'center' }}>
-                  <Empty description="No messages yet" />
-                  <Button type="link" icon={<PlusOutlined />} onClick={() => setNewChatVisible(true)}>
-                    Start new chat
+                  <Empty description="暂无消息" />
+                  <Button type="link" icon={<UserAddOutlined />} onClick={() => setAddContactVisible(true)}>
+                    添加联系人开始聊天
                   </Button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right: Chat area */}
+          {/* 右侧：聊天区域 */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {selectedContact ? (
               <>
@@ -316,7 +321,7 @@ const Messages: React.FC = () => {
                       <div key={msg.id} style={{ display: 'flex', justifyContent: isSelf ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
                         <div style={{ maxWidth: '70%' }}>
                           <div style={{ fontSize: 12, color: '#999', marginBottom: 4, textAlign: isSelf ? 'right' : 'left' }}>
-                            {isSelf ? (user?.name || 'Me') : msg.senderName} {formatTime(msg.createdAt)}
+                            {isSelf ? '我' : msg.senderName} {formatTime(msg.createdAt)}
                           </div>
                           <div style={{
                             padding: '8px 12px', borderRadius: 12,
@@ -331,7 +336,7 @@ const Messages: React.FC = () => {
                     );
                   }) : (
                     <div style={{ textAlign: 'center', padding: 40 }}>
-                      <Empty description="No messages yet. Say hello!" />
+                      <Empty description="暂无消息，发条消息打个招呼吧！" />
                     </div>
                   )}
                   <div ref={messagesEndRef} />
@@ -341,35 +346,38 @@ const Messages: React.FC = () => {
                     value={inputValue}
                     onChange={e => setInputValue(e.target.value)}
                     onPressEnter={handleSend}
-                    placeholder="Type a message..."
+                    placeholder="输入消息..."
                     style={{ flex: 1 }}
                     disabled={sending}
                   />
                   <Button type="primary" icon={<SendOutlined />} onClick={handleSend} loading={sending} disabled={!inputValue.trim()}>
-                    Send
+                    发送
                   </Button>
                 </div>
               </>
             ) : (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Empty description="Select a contact to start chatting" />
+                <Empty description="选择联系人开始聊天" />
               </div>
             )}
           </div>
         </div>
       </Card>
 
-      {/* New Chat Modal */}
+      {/* 添加联系人弹窗 */}
       <Modal
-        title="New Chat"
-        open={newChatVisible}
-        onCancel={() => { setNewChatVisible(false); setUserSearchKeyword(''); setUserSearchResults([]); }}
+        title="添加联系人"
+        open={addContactVisible}
+        onCancel={() => { setAddContactVisible(false); setUserSearchKeyword(''); setUserSearchResults([]); }}
         footer={null}
-        width={400}
+        width={450}
       >
+        <div style={{ marginBottom: 12 }}>
+          <Text type="secondary">搜索用户姓名或用户名来添加联系人</Text>
+        </div>
         <Input
           prefix={<SearchOutlined />}
-          placeholder="Search by name or username..."
+          placeholder="输入姓名或用户名搜索..."
           value={userSearchKeyword}
           onChange={e => {
             setUserSearchKeyword(e.target.value);
@@ -377,32 +385,42 @@ const Messages: React.FC = () => {
           }}
           allowClear
           style={{ marginBottom: 16 }}
+          size="large"
         />
         {searchingUsers ? (
-          <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
+          <div style={{ textAlign: 'center', padding: 20 }}><Spin tip="搜索中..." /></div>
         ) : userSearchResults.length > 0 ? (
           <List
             dataSource={userSearchResults}
             renderItem={(item: UserSearchResult) => (
               <List.Item
                 style={{ cursor: 'pointer', padding: '8px 12px', borderRadius: 8 }}
-                onClick={() => handleStartChat(item)}
-                actions={[<Button type="link" size="small">Chat</Button>]}
+                onClick={() => handleAddContact(item)}
+                actions={[
+                  <Button type="primary" size="small" icon={<PlusOutlined />}>
+                    添加
+                  </Button>
+                ]}
               >
                 <List.Item.Meta
                   avatar={<Avatar icon={<UserOutlined />} style={{ background: '#1677ff' }} />}
                   title={item.realName}
-                  description={<Space><Text type="secondary" style={{ fontSize: 12 }}>@{item.username}</Text>{item.role && <Tag color="blue" style={{ fontSize: 11 }}>{item.role}</Tag>}</Space>}
+                  description={
+                    <Space>
+                      <Text type="secondary" style={{ fontSize: 12 }}>@{item.username}</Text>
+                      {item.role && <Tag color="blue" style={{ fontSize: 11 }}>{item.role}</Tag>}
+                    </Space>
+                  }
                 />
               </List.Item>
             )}
           />
         ) : userSearchKeyword.length >= 2 ? (
-          <Empty description="No users found" />
+          <Empty description="未找到相关用户" />
         ) : (
           <div style={{ textAlign: 'center', padding: 20, color: '#999' }}>
             <TeamOutlined style={{ fontSize: 32, marginBottom: 8 }} />
-            <div>Type at least 2 characters to search</div>
+            <div>输入至少2个字符进行搜索</div>
           </div>
         )}
       </Modal>
