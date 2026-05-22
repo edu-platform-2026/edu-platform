@@ -106,6 +106,11 @@ const TeacherLayout: React.FC<TeacherLayoutProps> = ({ children }) => {
       label: 'AI模型配置',
     },
     {
+      key: '/teacher/invitations',
+      icon: <ShareAltOutlined />,
+      label: '邀请管理',
+    },
+    {
       key: '/teacher/messages',
       icon: <MessageOutlined />,
       label: '消息中心',
