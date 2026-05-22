@@ -5,7 +5,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto, createPaginatedResult } from '../../common/dto/pagination.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -45,7 +45,7 @@ export class UsersService {
       where.institutionId = filters.institutionId;
     }
 
-    if (filters?.status != null && filters?.status !== '' && !isNaN(Number(filters.status))) {
+    if (filters?.status != null) {
       where.status = Number(filters.status);
     }
 
