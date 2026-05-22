@@ -10,9 +10,6 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 
-/**
- * JWT 令牌载荷接口
- */
 interface TokenPayload {
   sub: string;
   username: string;
@@ -21,10 +18,6 @@ interface TokenPayload {
   permissions?: string[];
 }
 
-/**
- * 认证服务
- * 处理登录、注册、令牌刷新等认证相关业务逻辑
- */
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -36,29 +29,15 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  /**
-   * 验证用户凭据
-   * @param username 用户名
-   * @param password 密码
-   * @returns 验证通过的用户信息（不含密码），失败返回 null
-   */
   async validateUser(username: string, password: string): Promise<any> {
-    // 根据用户名查找用户
     const user = await this.prisma.user.findFirst({
-      where: {
-        username,
-        status: 1, // 只查找启用状态的用户
-      },
+      where: { username, status: 1 },
       include: {
         userRoles: {
           include: {
             role: {
               include: {
-                rolePermissions: {
-                  include: {
-                    permission: true,
-                  },
-                },
+                rolePermissions: { include: { permission: true } },
               },
             },
           },
@@ -66,29 +45,16 @@ export class AuthService {
       },
     });
 
-    if (!user) {
-      this.logger.warn(`用户不存在或已禁用: ${username}`);
-      return null;
-    }
+    if (!user) return null;
 
-    // 验证密码
-    const isPasswordValid = await bcrypt.compare(
-      password,
-      user.passwordHash,
-    );
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) return null;
 
-    if (!isPasswordValid) {
-      this.logger.warn(`密码验证失败: ${username}`);
-      return null;
-    }
-
-    // 更新最后登录时间
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
 
-    // 返回用户信息（排除密码）
     const { passwordHash, ...result } = user;
     const roles = user.userRoles.map((ur) => ur.role.code);
     const permissions = [
@@ -98,28 +64,16 @@ export class AuthService {
         ),
       ),
     ];
-    return {
-      ...result,
-      roles,
-      permissions,
-    };
+
+    return { ...result, roles, permissions };
   }
 
-  /**
-   * 用户登录
-   * @param username 用户名
-   * @param password 密码
-   * @returns 包含令牌和用户信息的登录响应
-   */
   async login(username: string, password: string) {
-    // 验证用户凭据
     const user = await this.validateUser(username, password);
-
     if (!user) {
-      throw new UnauthorizedException('用户名或密码错误');
+      throw new UnauthorizedException('Invalid username or password');
     }
 
-    // 生成令牌（payload 中包含角色和权限信息，供 JwtAuthGuard 使用）
     const tokens = await this.generateTokens({
       sub: user.id,
       username: user.username,
@@ -128,9 +82,6 @@ export class AuthService {
       permissions: user.permissions,
     });
 
-    this.logger.log(`用户登录成功: ${username}`);
-
-    // 返回前端期望的数据格式
     return {
       access_token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
@@ -139,9 +90,9 @@ export class AuthService {
       user: {
         id: user.id,
         username: user.username,
-        name: user.realName,           // 前端期望 name 字段
+        name: user.realName,
         realName: user.realName,
-        role: user.roles[0] || 'STUDENT',  // 取第一个角色作为主角色
+        role: user.roles[0] || 'STUDENT',
         roles: user.roles,
         institutionId: user.institutionId,
         email: user.email,
@@ -151,60 +102,57 @@ export class AuthService {
     };
   }
 
-  /**
-   * 用户注册
-   * @param registerDto 注册信息
-   * @returns 创建的用户信息
-   */
   async register(registerDto: RegisterDto) {
-    const { username, password, realName, phone, email, gender, institutionId, role } = registerDto;
+    const { username, password, realName, phone, email, gender, institutionId, role, invitationCode } = registerDto;
 
-    // 检查用户名是否已存在
-    const existingUser = await this.prisma.user.findFirst({
-      where: { username },
-    });
+    // Check username uniqueness
+    const existingUser = await this.prisma.user.findFirst({ where: { username } });
+    if (existingUser) throw new ConflictException('Username already exists');
 
-    if (existingUser) {
-      throw new ConflictException('用户名已存在');
-    }
-
-    // 检查手机号是否已存在
+    // Check phone uniqueness
     if (phone) {
-      const existingPhone = await this.prisma.user.findUnique({
-        where: { phone },
-      });
-
-      if (existingPhone) {
-        throw new ConflictException('手机号已被注册');
-      }
+      const existingPhone = await this.prisma.user.findUnique({ where: { phone } });
+      if (existingPhone) throw new ConflictException('Phone already registered');
     }
 
-    // 检查机构是否存在（不传则使用默认机构）
+    // Handle invitation code
     let finalInstitutionId = institutionId;
+    let finalRole = role;
+    let invitationRecord: any = null;
+
+    if (invitationCode) {
+      invitationRecord = await this.prisma.invitation.findUnique({
+        where: { code: invitationCode },
+      });
+      if (!invitationRecord) {
+        throw new ConflictException('Invalid invitation code');
+      }
+      if (invitationRecord.status === 1) {
+        throw new ConflictException('Invitation code already used');
+      }
+      // Use invitation's institution and role
+      if (!finalInstitutionId) finalInstitutionId = invitationRecord.institutionId;
+      if (!finalRole) finalRole = invitationRecord.role as any;
+    }
+
+    // Find default institution if not specified
     if (!finalInstitutionId) {
       const defaultInstitution = await this.prisma.institution.findFirst({
         where: { status: 1 },
         orderBy: { createdAt: 'asc' },
       });
-      if (defaultInstitution) {
-        finalInstitutionId = defaultInstitution.id;
-      }
+      if (defaultInstitution) finalInstitutionId = defaultInstitution.id;
     }
 
     const institution = await this.prisma.institution.findUnique({
       where: { id: finalInstitutionId },
     });
+    if (!institution) throw new ConflictException('Institution not found');
 
-    if (!institution) {
-      throw new ConflictException('机构不存在');
-    }
-
-    // 加密密码
     const passwordHash = await bcrypt.hash(password, this.saltRounds);
 
-    // 创建用户（事务操作）
+    // Create user in transaction
     const user = await this.prisma.$transaction(async (tx) => {
-      // 创建用户记录
       const newUser = await tx.user.create({
         data: {
           username,
@@ -218,60 +166,52 @@ export class AuthService {
         },
       });
 
-      // 如果指定了角色，分配角色
-      if (role) {
+      // Assign role
+      if (finalRole) {
         const roleRecord = await tx.role.findFirst({
           where: {
-            code: role,
+            code: finalRole,
             OR: [
               { institutionId: finalInstitutionId! },
               { isSystem: true },
             ],
           },
         });
-
         if (roleRecord) {
           await tx.userRole.create({
-            data: {
-              userId: newUser.id,
-              roleId: roleRecord.id,
-            },
+            data: { userId: newUser.id, roleId: roleRecord.id },
           });
         }
+      }
+
+      // Mark invitation as used
+      if (invitationRecord) {
+        await tx.invitation.update({
+          where: { code: invitationCode },
+          data: { inviteeId: newUser.id, status: 1, usedAt: new Date() },
+        });
       }
 
       return newUser;
     });
 
-    this.logger.log(`用户注册成功: ${username}`);
+    this.logger.log(`User registered: ${username}${invitationCode ? ' (with invite code)' : ''}`);
 
-    // 返回用户信息（排除密码）
     const { passwordHash: _, ...result } = user;
     return result;
   }
 
-  /**
-   * 刷新令牌
-   * @param refreshToken 刷新令牌
-   * @returns 新的令牌对
-   */
   async refreshToken(refreshToken: string) {
     try {
-      // 验证刷新令牌
       const payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
 
-      // 检查用户是否存在且启用
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-      });
-
+      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
       if (!user || user.status !== 1) {
-        throw new UnauthorizedException('用户不存在或已被禁用');
+        throw new UnauthorizedException('User not found or disabled');
       }
 
-      // 生成新的令牌对（保留原 payload 中的角色和权限）
       const tokens = await this.generateTokens({
         sub: user.id,
         username: user.username,
@@ -280,43 +220,23 @@ export class AuthService {
         permissions: payload.permissions,
       });
 
-      this.logger.log(`令牌刷新成功: ${user.username}`);
-
       return tokens;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      this.logger.warn(`令牌刷新失败: ${error.message}`);
-      throw new UnauthorizedException('刷新令牌无效或已过期');
+      if (error instanceof UnauthorizedException) throw error;
+      throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  /**
-   * 获取用户个人信息
-   * @param userId 用户 ID
-   * @returns 用户详细信息
-   */
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        institution: {
-          select: {
-            id: true,
-            name: true,
-            logoUrl: true,
-          },
-        },
+        institution: { select: { id: true, name: true, logoUrl: true } },
         userRoles: {
           include: {
             role: {
               include: {
-                rolePermissions: {
-                  include: {
-                    permission: true,
-                  },
-                },
+                rolePermissions: { include: { permission: true } },
               },
             },
           },
@@ -324,11 +244,8 @@ export class AuthService {
       },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('用户不存在');
-    }
+    if (!user) throw new UnauthorizedException('User not found');
 
-    // 提取角色和权限
     const roles = user.userRoles.map((ur) => ur.role.code);
     const permissions = [
       ...new Set(
@@ -338,28 +255,18 @@ export class AuthService {
       ),
     ];
 
-    // 返回用户信息（排除密码）
     const { passwordHash, userRoles, ...userInfo } = user;
-
     return {
       ...userInfo,
-      name: user.realName,            // 前端期望 name 字段
-      role: roles[0] || 'STUDENT',    // 主角色（取第一个）
-      roles,                          // 所有角色
-      avatar: user.avatarUrl,         // 前端期望 avatar 字段
+      name: user.realName,
+      role: roles[0] || 'STUDENT',
+      roles,
+      avatar: user.avatarUrl,
       permissions,
     };
   }
 
-  /**
-   * 更新个人信息
-   * @param userId 用户 ID
-   * @param updateData 要更新的字段
-   */
-  async updateProfile(
-    userId: string,
-    updateData: { realName?: string; email?: string; phone?: string; avatarUrl?: string },
-  ) {
+  async updateProfile(userId: string, updateData: { realName?: string; email?: string; phone?: string; avatarUrl?: string }) {
     const data: any = {};
     if (updateData.realName !== undefined) data.realName = updateData.realName;
     if (updateData.email !== undefined) data.email = updateData.email;
@@ -369,88 +276,38 @@ export class AuthService {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data,
-      select: {
-        id: true,
-        username: true,
-        realName: true,
-        email: true,
-        phone: true,
-        avatarUrl: true,
-        status: true,
-      },
+      select: { id: true, username: true, realName: true, email: true, phone: true, avatarUrl: true, status: true },
     });
 
-    return {
-      ...user,
-      name: user.realName,
-      avatar: user.avatarUrl,
-    };
+    return { ...user, name: user.realName, avatar: user.avatarUrl };
   }
 
-  /**
-   * 修改密码
-   * @param userId 用户 ID
-   * @param oldPassword 旧密码
-   * @param newPassword 新密码
-   */
-  async changePassword(
-    userId: string,
-    oldPassword: string,
-    newPassword: string,
-  ) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
 
-    if (!user) {
-      throw new UnauthorizedException('用户不存在');
-    }
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.passwordHash);
+    if (!isOldPasswordValid) throw new UnauthorizedException('Current password is incorrect');
 
-    // 验证旧密码
-    const isOldPasswordValid = await bcrypt.compare(
-      oldPassword,
-      user.passwordHash,
-    );
-
-    if (!isOldPasswordValid) {
-      throw new UnauthorizedException('当前密码不正确');
-    }
-
-    // 加密新密码并更新
     const newPasswordHash = await bcrypt.hash(newPassword, this.saltRounds);
-
     await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash: newPasswordHash },
     });
 
-    this.logger.log(`用户修改密码成功: ${user.username}`);
-
-    return { message: '密码修改成功' };
+    return { message: 'Password changed successfully' };
   }
 
-  /**
-   * 生成访问令牌和刷新令牌
-   * @param payload 令牌载荷
-   * @returns 令牌对
-   */
   private async generateTokens(payload: TokenPayload) {
     const [accessToken, refreshToken] = await Promise.all([
-      // 生成访问令牌
       this.jwtService.signAsync(payload, {
         expiresIn: this.configService.get<string>('JWT_EXPIRATION', '2h'),
       }),
-      // 生成刷新令牌
       this.jwtService.signAsync(payload, {
         expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d'),
       }),
     ]);
 
-    return {
-      accessToken,
-      refreshToken,
-      tokenType: 'Bearer',
-      expiresIn: 7200, // 2 小时（秒）
-    };
+    return { accessToken, refreshToken, tokenType: 'Bearer', expiresIn: 7200 };
   }
 }
