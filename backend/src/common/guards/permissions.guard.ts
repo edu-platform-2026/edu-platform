@@ -9,19 +9,10 @@ import { Reflector } from '@nestjs/core';
 import { Permission } from '../enums/permission.enum';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 
-/**
- * Permissions Guard
- * Checks if user has required permissions.
- * Falls back to default role-based permissions when database mappings are missing.
- */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   private readonly logger = new Logger(PermissionsGuard.name);
 
-  /**
-   * Default permissions for each role.
-   * Used as fallback when JWT token doesn't contain permissions (database mappings missing).
-   */
   private static readonly DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     ADMIN: ['*'],
     TEACHER: [
@@ -51,6 +42,7 @@ export class PermissionsGuard implements CanActivate {
       'notification:read',
       'feedback:create', 'feedback:read',
       'analytics:read', 'analytics:progress',
+      'user:read',
       'message:read', 'message:create', 'message:update', 'message:delete',
     ],
     PARENT: [
@@ -61,6 +53,7 @@ export class PermissionsGuard implements CanActivate {
       'notification:read',
       'feedback:create', 'feedback:read',
       'analytics:read', 'analytics:progress',
+      'user:read',
       'message:read', 'message:create', 'message:update', 'message:delete',
     ],
   };
@@ -81,8 +74,7 @@ export class PermissionsGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      this.logger.warn('PermissionsGuard: no user in request');
-      throw new ForbiddenException('User not authenticated');
+      throw new ForbiddenException('用户未认证');
     }
 
     const userRoles: string[] = user.roles || [];
@@ -92,31 +84,35 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    // Build effective permissions from JWT + default role permissions
-    let userPermissions: string[] = [...(user.permissions || [])];
+    // Always build permissions from role defaults + JWT permissions
+    const effectivePermissions = new Set<string>();
 
-    // If JWT has no permissions, use default role-based permissions
-    if (userPermissions.length === 0 && userRoles.length > 0) {
-      for (const role of userRoles) {
-        const defaultPerms = PermissionsGuard.DEFAULT_ROLE_PERMISSIONS[role] || [];
-        if (defaultPerms.includes('*')) {
-          return true;
-        }
-        userPermissions.push(...defaultPerms);
+    // Add default permissions based on role
+    for (const role of userRoles) {
+      const defaultPerms = PermissionsGuard.DEFAULT_ROLE_PERMISSIONS[role] || [];
+      for (const perm of defaultPerms) {
+        effectivePermissions.add(perm);
       }
-      userPermissions = [...new Set(userPermissions)];
     }
 
+    // Also add JWT permissions (may supplement defaults)
+    if (user.permissions && Array.isArray(user.permissions)) {
+      for (const perm of user.permissions) {
+        effectivePermissions.add(perm);
+      }
+    }
+
+    // Check if user has all required permissions
     const missingPermissions = requiredPermissions.filter(
-      (permission) => !userPermissions.includes(permission),
+      (permission) => !effectivePermissions.has(permission),
     );
 
     if (missingPermissions.length > 0) {
       this.logger.warn(
-        `PermissionsGuard: user ${user.id} missing permissions: ${missingPermissions.join(', ')}`,
+        `User ${user.id} missing permissions: ${missingPermissions.join(', ')}`,
       );
       throw new ForbiddenException(
-        `Missing permissions: ${missingPermissions.join(', ')}`,
+        `权限不足，缺少: ${missingPermissions.join(', ')}`,
       );
     }
 
