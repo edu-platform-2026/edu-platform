@@ -3,38 +3,41 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsArray,
   MaxLength,
 } from 'class-validator';
 
+/**
+ * 创建反馈 DTO
+ *
+ * 反馈分类：建议、投诉、表扬、其他
+ */
 export class CreateFeedbackDto {
-  @ApiPropertyOptional({ description: 'Feedback title', example: 'Suggestion about course schedule' })
+  @ApiPropertyOptional({ description: '反馈标题', example: '关于课程安排的建议' })
   @IsOptional()
-  @IsString()
-  @MaxLength(300)
+  @IsString({ message: '反馈标题必须是字符串' })
+  @MaxLength(300, { message: '反馈标题最多 300 个字符' })
   title?: string;
 
-  @ApiProperty({ description: 'Feedback content' })
-  @IsNotEmpty()
-  @IsString()
+  @ApiProperty({ description: '反馈内容' })
+  @IsNotEmpty({ message: '反馈内容不能为空' })
+  @IsString({ message: '反馈内容必须是字符串' })
   content: string;
 
   @ApiPropertyOptional({
-    description: 'Feedback category',
-    enum: ['suggestion', 'complaint', 'praise', 'other'],
-    example: 'suggestion',
+    description: '反馈分类',
+    enum: ['建议', '投诉', '表扬', '其他'],
+    example: '建议',
   })
   @IsOptional()
-  @IsString()
+  @IsString({ message: '反馈分类必须是字符串' })
   category?: string;
 
-  @ApiPropertyOptional({ description: 'Related teacher ID' })
+  @ApiPropertyOptional({ description: '相关教师 ID' })
   @IsOptional()
-  @IsString()
+  @IsString({ message: '教师 ID 必须是字符串' })
   teacherId?: string;
 
-  @ApiPropertyOptional({ description: 'Attachments (JSON array)' })
+  @ApiPropertyOptional({ description: '附件列表（JSON 数组）' })
   @IsOptional()
-  @IsArray()
   attachments?: any[];
 }
