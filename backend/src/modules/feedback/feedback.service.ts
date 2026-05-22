@@ -12,12 +12,6 @@ import { ReplyFeedbackDto } from './dto/reply-feedback.dto';
  * 反馈服务
  * 处理反馈 CRUD、回复等业务逻辑
  *
- * 反馈类型：
- * - 1: 建议
- * - 2: 投诉
- * - 3: 问题反馈
- * - 4: 其他
- *
  * 反馈状态：
  * - 1: 待处理
  * - 2: 处理中
@@ -32,28 +26,27 @@ export class FeedbackService {
 
   /**
    * 获取反馈列表（分页）
-   * @param institutionId 机构 ID
-   * @param paginationDto 分页参数
-   * @param filters 筛选条件
-   * @returns 分页反馈列表
    */
   async findAll(
     institutionId: string,
     paginationDto: PaginationDto,
     filters?: {
       keyword?: string;
-      type?: number;
+      category?: string;
       status?: number;
-      userId?: string;
+      parentId?: string;
     },
   ) {
-    const { page, pageSize, sortBy = 'createdAt', sortOrder } = paginationDto;
+    const page = Number(paginationDto?.page) || 1;
+    const pageSize = Number(paginationDto?.pageSize) || 10;
+    const sortBy = paginationDto?.sortBy || 'createdAt';
+    const sortOrder = paginationDto?.sortOrder || 'desc';
 
     const where: any = { institutionId };
 
-    if (filters?.type) where.type = filters.type;
-    if (filters?.status !== undefined) where.status = filters.status;
-    if (filters?.userId) where.parentId = filters.userId;
+    if (filters?.category) where.category = filters.category;
+    if (filters?.status !== undefined && filters?.status !== null) where.status = Number(filters.status);
+    if (filters?.parentId) where.parentId = filters.parentId;
 
     if (filters?.keyword) {
       where.OR = [
@@ -79,6 +72,13 @@ export class FeedbackService {
               avatarUrl: true,
             },
           },
+          replier: {
+            select: {
+              id: true,
+              realName: true,
+              avatarUrl: true,
+            },
+          },
         },
       }),
       this.prisma.feedback.count({ where }),
@@ -89,8 +89,6 @@ export class FeedbackService {
 
   /**
    * 获取反馈详情
-   * @param id 反馈 ID
-   * @returns 反馈详细信息
    */
   async findById(id: string) {
     const feedback = await this.prisma.feedback.findUnique({
@@ -105,6 +103,19 @@ export class FeedbackService {
             phone: true,
           },
         },
+        teacher: {
+          select: {
+            id: true,
+            realName: true,
+          },
+        },
+        replier: {
+          select: {
+            id: true,
+            realName: true,
+            avatarUrl: true,
+          },
+        },
       },
     });
 
@@ -117,19 +128,16 @@ export class FeedbackService {
 
   /**
    * 创建反馈
-   * @param institutionId 机构 ID
-   * @param userId 用户 ID
-   * @param dto 创建数据
-   * @returns 创建的反馈信息
    */
-  async create(institutionId: string, userId: string, dto: CreateFeedbackDto) {
+  async create(institutionId: string, parentId: string, dto: CreateFeedbackDto) {
     const feedback = await this.prisma.feedback.create({
       data: {
         institutionId,
-        parentId: userId,
+        parentId,
+        teacherId: dto.teacherId || null,
         title: dto.title,
         content: dto.content,
-        category: dto.type ? String(dto.type) : undefined,
+        category: dto.category || '其他',
         attachments: dto.attachments || undefined,
         status: 1, // 默认待处理
       },
@@ -150,16 +158,13 @@ export class FeedbackService {
 
   /**
    * 更新反馈信息
-   * @param id 反馈 ID
-   * @param data 更新数据
-   * @returns 更新后的反馈信息
    */
   async update(
     id: string,
     data: {
       title?: string;
       content?: string;
-      type?: number;
+      category?: string;
       status?: number;
     },
   ) {
@@ -176,7 +181,7 @@ export class FeedbackService {
       data: {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.content !== undefined && { content: data.content }),
-        ...(data.type !== undefined && { category: String(data.type) }),
+        ...(data.category !== undefined && { category: data.category }),
         ...(data.status !== undefined && { status: data.status }),
       },
     });
@@ -188,7 +193,6 @@ export class FeedbackService {
 
   /**
    * 删除反馈
-   * @param id 反馈 ID
    */
   async remove(id: string) {
     const existing = await this.prisma.feedback.findUnique({
@@ -208,10 +212,7 @@ export class FeedbackService {
 
   /**
    * 回复反馈
-   * @param feedbackId 反馈 ID
-   * @param replierId 回复者 ID
-   * @param dto 回复数据
-   * @returns 更新后的反馈记录
+   * 直接更新反馈的 reply 字段和状态
    */
   async reply(feedbackId: string, replierId: string, dto: ReplyFeedbackDto) {
     const feedback = await this.prisma.feedback.findUnique({
@@ -223,14 +224,13 @@ export class FeedbackService {
     }
 
     // 更新反馈的回复内容和状态
-    const newStatus = dto.status || 3; // 默认已回复
-    const result = await this.prisma.feedback.update({
+    const updatedFeedback = await this.prisma.feedback.update({
       where: { id: feedbackId },
       data: {
         reply: dto.content,
         repliedBy: replierId,
         repliedAt: new Date(),
-        status: newStatus,
+        status: dto.status || 3, // 默认已回复
       },
       include: {
         replier: {
@@ -245,14 +245,11 @@ export class FeedbackService {
 
     this.logger.log(`反馈 ${feedbackId} 已回复`);
 
-    return result;
+    return updatedFeedback;
   }
 
   /**
    * 获取当前用户的反馈列表
-   * @param userId 用户 ID
-   * @param paginationDto 分页参数
-   * @returns 分页反馈列表
    */
   async findMyFeedbacks(userId: string, paginationDto: PaginationDto) {
     const { page, pageSize } = paginationDto;
