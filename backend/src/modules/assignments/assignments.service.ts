@@ -7,12 +7,33 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto, createPaginatedResult } from '../../common/dto/pagination.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 
+/**
+ * 作业服务
+ * 处理作业 CRUD、发布、统计等业务逻辑
+ *
+ * 作业类型：
+ * - 1: 日常作业
+ * - 2: 测验
+ * - 3: 考试
+ *
+ * 作业状态：
+ * - 1: 草稿
+ * - 2: 已发布
+ * - 3: 已截止
+ */
 @Injectable()
 export class AssignmentsService {
   private readonly logger = new Logger(AssignmentsService.name);
 
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * 获取作业列表（分页）
+   * @param institutionId 机构 ID
+   * @param paginationDto 分页参数
+   * @param filters 筛选条件
+   * @returns 分页作业列表
+   */
   async findAll(
     institutionId: string,
     paginationDto: PaginationDto,
@@ -33,17 +54,11 @@ export class AssignmentsService {
 
     const where: any = { institutionId };
 
-    if (filters?.status !== undefined && filters?.status !== null) {
-      const statusNum = Number(filters.status);
-      if (!isNaN(statusNum)) where.status = statusNum;
-    }
+    if (filters?.status !== undefined && filters?.status !== null) where.status = Number(filters.status);
     if (filters?.classId) where.classId = filters.classId;
     if (filters?.courseId) where.courseId = filters.courseId;
     if (filters?.teacherId) where.teacherId = filters.teacherId;
-    if (filters?.type !== undefined && filters?.type !== null) {
-      const typeNum = Number(filters.type);
-      if (!isNaN(typeNum)) where.type = typeNum;
-    }
+    if (filters?.type !== undefined && filters?.type !== null) where.type = Number(filters.type);
     if (filters?.subject) where.subject = filters.subject;
 
     if (filters?.keyword) {
@@ -71,14 +86,28 @@ export class AssignmentsService {
           teacher: {
             select: { id: true, realName: true, avatarUrl: true },
           },
+          _count: {
+            select: { submissions: true },
+          },
         },
       }),
       this.prisma.assignment.count({ where }),
     ]);
 
-    return createPaginatedResult(assignments, total, page, pageSize);
+    const formattedAssignments = assignments.map((a) => ({
+      ...a,
+      submissionCount: a._count.submissions,
+      _count: undefined,
+    }));
+
+    return createPaginatedResult(formattedAssignments, total, page, pageSize);
   }
 
+  /**
+   * 获取作业详情
+   * @param id 作业 ID
+   * @returns 作业详细信息
+   */
   async findById(id: string) {
     const assignment = await this.prisma.assignment.findUnique({
       where: { id },
@@ -103,30 +132,48 @@ export class AssignmentsService {
           },
           orderBy: { submittedAt: 'desc' },
         },
+        _count: {
+          select: { submissions: true },
+        },
       },
     });
 
     if (!assignment) {
-      throw new NotFoundException('Assignment not found: ' + id);
+      throw new NotFoundException(`作业不存在: ${id}`);
     }
 
-    return assignment;
+    return {
+      ...assignment,
+      submissionCount: assignment._count.submissions,
+      _count: undefined,
+    };
   }
 
+  /**
+   * 创建作业
+   * @param institutionId 机构 ID
+   * @param teacherId 教师 ID
+   * @param dto 创建数据
+   * @returns 创建的作业信息
+   */
   async create(institutionId: string, teacherId: string, dto: CreateAssignmentDto) {
+    // 验证班级
     const cls = await this.prisma.class.findUnique({
       where: { id: dto.classId },
     });
+
     if (!cls) {
-      throw new NotFoundException('Class not found');
+      throw new NotFoundException('指定的班级不存在');
     }
 
+    // 验证课程（如果指定）
     if (dto.courseId) {
       const course = await this.prisma.course.findUnique({
         where: { id: dto.courseId },
       });
+
       if (!course) {
-        throw new NotFoundException('Course not found');
+        throw new NotFoundException('指定的课程不存在');
       }
     }
 
@@ -143,7 +190,7 @@ export class AssignmentsService {
         attachments: dto.attachments || undefined,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         maxScore: dto.maxScore || 100,
-        status: 1,
+        status: 1, // 默认为草稿状态
       },
       include: {
         class: {
@@ -155,10 +202,17 @@ export class AssignmentsService {
       },
     });
 
-    this.logger.log('Assignment created: ' + dto.title);
+    this.logger.log(`作业创建成功: ${dto.title}`);
+
     return assignment;
   }
 
+  /**
+   * 更新作业信息
+   * @param id 作业 ID
+   * @param data 更新数据
+   * @returns 更新后的作业信息
+   */
   async update(
     id: string,
     data: {
@@ -177,25 +231,21 @@ export class AssignmentsService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Assignment not found: ' + id);
-    }
-
-    const updateData: any = {};
-    if (data.title !== undefined) updateData.title = data.title;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.type !== undefined) updateData.type = data.type;
-    if (data.subject !== undefined) updateData.subject = data.subject;
-    if (data.attachments !== undefined) updateData.attachments = data.attachments;
-    if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
-    if (data.maxScore !== undefined) updateData.maxScore = data.maxScore;
-    if (data.status !== undefined) {
-      const statusNum = Number(data.status);
-      if (!isNaN(statusNum)) updateData.status = statusNum;
+      throw new NotFoundException(`作业不存在: ${id}`);
     }
 
     const assignment = await this.prisma.assignment.update({
       where: { id },
-      data: updateData,
+      data: {
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.type !== undefined && { type: data.type }),
+        ...(data.subject !== undefined && { subject: data.subject }),
+        ...(data.attachments !== undefined && { attachments: data.attachments }),
+        ...(data.dueDate !== undefined && { dueDate: data.dueDate ? new Date(data.dueDate) : null }),
+        ...(data.maxScore !== undefined && { maxScore: data.maxScore }),
+        ...(data.status !== undefined && { status: data.status }),
+      },
       include: {
         class: {
           select: { id: true, name: true },
@@ -203,33 +253,55 @@ export class AssignmentsService {
       },
     });
 
-    this.logger.log('Assignment updated: ' + id);
+    this.logger.log(`作业更新成功: ${id}`);
+
     return assignment;
   }
 
+  /**
+   * 删除作业（软删除）
+   * @param id 作业 ID
+   */
   async remove(id: string) {
     const existing = await this.prisma.assignment.findUnique({
       where: { id },
+      include: {
+        _count: { select: { submissions: true } },
+      },
     });
 
     if (!existing) {
-      throw new NotFoundException('Assignment not found: ' + id);
+      throw new NotFoundException(`作业不存在: ${id}`);
     }
 
-    await this.prisma.assignment.delete({
-      where: { id },
-    });
+    if (existing._count.submissions > 0) {
+      // 有提交记录时软删除
+      await this.prisma.assignment.update({
+        where: { id },
+        data: { status: 0 },
+      });
+    } else {
+      // 没有提交记录时可直接删除
+      await this.prisma.assignment.delete({
+        where: { id },
+      });
+    }
 
-    this.logger.log('Assignment deleted: ' + id);
+    this.logger.log(`作业已删除: ${id}`);
   }
 
+  /**
+   * 发布作业（状态改为已发布）
+   * @param id 作业 ID
+   * @returns 更新后的作业信息
+   */
   async publish(id: string) {
     const existing = await this.prisma.assignment.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      throw new NotFoundException('Assignment not found: ' + id);
+      throw new NotFoundException(`作业不存在: ${id}`);
     }
 
     const assignment = await this.prisma.assignment.update({
@@ -237,17 +309,23 @@ export class AssignmentsService {
       data: { status: 2 },
     });
 
-    this.logger.log('Assignment published: ' + id);
+    this.logger.log(`作业已发布: ${id}`);
+
     return assignment;
   }
 
+  /**
+   * 获取作业统计信息
+   * @param id 作业 ID
+   * @returns 统计数据
+   */
   async getStatistics(id: string) {
     const assignment = await this.prisma.assignment.findUnique({
       where: { id },
       include: {
         class: {
           include: {
-            classStudents: true,
+            _count: { select: { classStudents: true } },
           },
         },
         submissions: {
@@ -260,13 +338,14 @@ export class AssignmentsService {
     });
 
     if (!assignment) {
-      throw new NotFoundException('Assignment not found: ' + id);
+      throw new NotFoundException(`作业不存在: ${id}`);
     }
 
-    const totalStudents = assignment.class.classStudents.length;
+    const totalStudents = assignment.class._count.classStudents;
     const submittedCount = assignment.submissions.length;
     const gradedCount = assignment.submissions.filter((s) => s.status === 2).length;
 
+    // 计算平均分
     const gradedScores = assignment.submissions
       .filter((s) => s.score !== null)
       .map((s) => Number(s.score));
@@ -276,11 +355,12 @@ export class AssignmentsService {
         ? gradedScores.reduce((sum, score) => sum + score, 0) / gradedScores.length
         : null;
 
+    // 分数段统计
     const scoreRanges = {
-      excellent: 0,
-      good: 0,
-      average: 0,
-      fail: 0,
+      excellent: 0, // 90-100
+      good: 0,      // 80-89
+      average: 0,   // 60-79
+      fail: 0,      // 0-59
     };
 
     gradedScores.forEach((score) => {
