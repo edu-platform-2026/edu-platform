@@ -7,9 +7,6 @@ export class ParentService {
 
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Get students bound to a parent
-   */
   async getBoundStudents(parentId: string) {
     const bindings = await this.prisma.classStudent.findMany({
       where: { parentId },
@@ -23,7 +20,6 @@ export class ParentService {
       },
     });
 
-    // Group by student (a student can be in multiple classes)
     const studentMap = new Map<string, any>();
     for (const binding of bindings) {
       const sid = binding.studentId;
@@ -39,9 +35,6 @@ export class ParentService {
     return Array.from(studentMap.values());
   }
 
-  /**
-   * Search students by username or realName
-   */
   async searchStudents(keyword: string, institutionId: string) {
     const students = await this.prisma.user.findMany({
       where: {
@@ -64,38 +57,29 @@ export class ParentService {
     return students;
   }
 
-  /**
-   * Bind parent to a student (update ClassStudent.parentId)
-   */
   async bindStudent(parentId: string, studentId: string) {
-    // Find all class enrollments for this student
     const enrollments = await this.prisma.classStudent.findMany({
       where: { studentId },
     });
 
     if (enrollments.length === 0) {
-      throw new NotFoundException('璇ュ鐢熷皻鏈姞鍏ヤ换浣曠彮绾?);
+      throw new NotFoundException('Student has not joined any class');
     }
 
-    // Check if already bound
     const alreadyBound = enrollments.some(e => e.parentId === parentId);
     if (alreadyBound) {
-      throw new ConflictException('宸茬粡缁戝畾杩囪瀛︾敓');
+      throw new ConflictException('Already bound to this student');
     }
 
-    // Update all class enrollments for this student to add parent
     await this.prisma.classStudent.updateMany({
       where: { studentId },
       data: { parentId },
     });
 
     this.logger.log(`Parent ${parentId} bound to student ${studentId}`);
-    return { message: '缁戝畾鎴愬姛', studentId };
+    return { message: 'Bind successful', studentId };
   }
 
-  /**
-   * Unbind parent from a student
-   */
   async unbindStudent(parentId: string, studentId: string) {
     await this.prisma.classStudent.updateMany({
       where: { studentId, parentId },
@@ -103,25 +87,20 @@ export class ParentService {
     });
 
     this.logger.log(`Parent ${parentId} unbound from student ${studentId}`);
-    return { message: '瑙ｇ粦鎴愬姛', studentId };
+    return { message: 'Unbind successful', studentId };
   }
 
-  /**
-   * Get student's assignments (for parent to view)
-   */
   async getStudentAssignments(studentId: string) {
-    // Get student's class IDs
     const enrollments = await this.prisma.classStudent.findMany({
       where: { studentId },
       select: { classId: true },
     });
     const classIds = enrollments.map(e => e.classId);
 
-    // Get assignments for those classes
     const assignments = await this.prisma.assignment.findMany({
       where: {
         classId: { in: classIds },
-        status: 2, // published
+        status: 2,
       },
       include: {
         course: { select: { id: true, name: true, subject: true } },
@@ -145,17 +124,12 @@ export class ParentService {
     }));
   }
 
-  /**
-   * Get student's progress/grades summary
-   */
   async getStudentProgress(studentId: string) {
     const enrollments = await this.prisma.classStudent.findMany({
       where: { studentId },
       select: { classId: true },
     });
-    const classIds = enrollments.map(e => e.classId);
 
-    // Get all submissions with scores
     const submissions = await this.prisma.submission.findMany({
       where: {
         studentId,
@@ -169,14 +143,12 @@ export class ParentService {
       orderBy: { gradedAt: 'desc' },
     });
 
-    // Calculate averages
     const scores = submissions.map(s => Number(s.score));
     const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 
-    // Group by course
     const courseMap = new Map<string, { name: string; scores: number[] }>();
     for (const sub of submissions) {
-      const courseName = sub.assignment.course?.name || '鏈煡璇剧▼';
+      const courseName = sub.assignment.course?.name || 'Unknown';
       const courseId = sub.assignment.courseId || 'unknown';
       if (!courseMap.has(courseId)) {
         courseMap.set(courseId, { name: courseName, scores: [] });
