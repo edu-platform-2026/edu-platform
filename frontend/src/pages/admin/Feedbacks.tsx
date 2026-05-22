@@ -75,21 +75,19 @@ const AdminFeedbacks: React.FC = () => {
         setReplyVisible(false);
         fetchFeedbacks();
       }
-    } catch {
-      // validation failed
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      message.error(err?.message || '回复失败，请重试');
     }
   };
 
   const handleUpdateStatus = async (id: string, status: string) => {
     try {
-      await feedbackService.updateFeedbackStatus(id, status);
+      await feedbackService.updateFeedback(id, { status });
       message.success('状态更新成功');
       fetchFeedbacks();
     } catch {
-      message.success('状态更新成功');
-      setFeedbacks((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, status: status as any } : f))
-      );
+      message.error('状态更新失败，请重试');
     }
   };
 
