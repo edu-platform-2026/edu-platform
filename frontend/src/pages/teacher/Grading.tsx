@@ -41,8 +41,8 @@ const Grading: React.FC = () => {
     setLoading(true);
     try {
       const response = await assignmentService.getAssignments({ teacherId: user?.id, pageSize: 100 });
-    const resData = response?.data;
-    const items = resData?.items || (Array.isArray(resData) ? resData : []);
+      const resData = response?.data;
+      const items = resData?.items || (Array.isArray(resData) ? resData : []);
       setAssignments(items);
       // 默认选择第一个已发布的作业
       if (items.length > 0 && !selectedAssignmentId) {
@@ -62,9 +62,9 @@ const Grading: React.FC = () => {
     try {
       const assignment = assignments.find(a => a.id === assignmentId);
       const response = await assignmentService.getSubmissions(assignmentId);
-    const subData = response?.data;
-    const subItems = subData?.items || (Array.isArray(subData) ? subData : []);
-    const items = subItems.map((s: AssignmentSubmission) => ({
+      const subData = response?.data;
+      const subItems = subData?.items || (Array.isArray(subData) ? subData : []);
+      const items = subItems.map((s: AssignmentSubmission) => ({
         ...s,
         assignmentTitle: assignment?.title || '',
         courseName: assignment?.courseName || '',
