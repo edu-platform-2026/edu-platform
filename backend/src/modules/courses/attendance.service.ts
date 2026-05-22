@@ -58,8 +58,8 @@ export class AttendanceService {
       where.teacherId = filters.teacherId;
     }
 
-    if (filters?.status !== undefined) {
-      where.status = filters.status;
+    if (filters?.status != null && filters?.status !== '' && !isNaN(Number(filters.status))) {
+      where.status = Number(filters.status);
     }
 
     if (filters?.startDate || filters?.endDate) {
