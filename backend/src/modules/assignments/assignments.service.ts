@@ -47,15 +47,18 @@ export class AssignmentsService {
       subject?: string;
     },
   ) {
-    const { page, pageSize, sortBy = 'createdAt', sortOrder } = paginationDto;
+    const page = Number(paginationDto?.page) || 1;
+    const pageSize = Number(paginationDto?.pageSize) || 10;
+    const sortBy = paginationDto?.sortBy || 'createdAt';
+    const sortOrder = paginationDto?.sortOrder || 'desc';
 
     const where: any = { institutionId };
 
-    if (filters?.status !== undefined) where.status = filters.status;
+    if (filters?.status !== undefined && filters?.status !== null) where.status = Number(filters.status);
     if (filters?.classId) where.classId = filters.classId;
     if (filters?.courseId) where.courseId = filters.courseId;
     if (filters?.teacherId) where.teacherId = filters.teacherId;
-    if (filters?.type) where.type = filters.type;
+    if (filters?.type !== undefined && filters?.type !== null) where.type = Number(filters.type);
     if (filters?.subject) where.subject = filters.subject;
 
     if (filters?.keyword) {
