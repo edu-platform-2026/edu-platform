@@ -22,6 +22,7 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { OperationLogsModule } from './modules/operation-logs/operation-logs.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { ParentModule } from './modules/parent/parent.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 /**
  * Application root module
@@ -59,6 +60,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     MessagesModule,
     OperationLogsModule,
     PaymentsModule,
+    ParentModule,
   ],
   providers: [
     {
