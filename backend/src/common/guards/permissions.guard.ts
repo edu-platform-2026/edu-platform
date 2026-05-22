@@ -19,32 +19,101 @@ import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 export class PermissionsGuard implements CanActivate {
   private readonly logger = new Logger(PermissionsGuard.name);
 
-  // 各角色默认权限映射
+  // 各角色默认权限映射 - 使用 Permission 枚举的实际值
   private static readonly DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     TEACHER: [
-      'course:create', 'course:read', 'course:update', 'course:delete',
-      'homework:create', 'homework:read', 'homework:update', 'homework:delete',
-      'exam:create', 'exam:read', 'exam:update', 'exam:delete',
-      'student:read', 'attendance:manage', 'grade:manage',
-      'resource:create', 'resource:read', 'resource:update', 'resource:delete',
-      'message:send', 'message:read', 'message:manage',
-      'notification:read', 'notification:create',
-      'feedback:read', 'feedback:reply',
-      'ai:use', 'invitation:create', 'invitation:read',
+      // 作业模块
+      Permission.ASSIGNMENT_CREATE,
+      Permission.ASSIGNMENT_READ,
+      Permission.ASSIGNMENT_UPDATE,
+      Permission.ASSIGNMENT_DELETE,
+      Permission.ASSIGNMENT_GRADE,
+      Permission.ASSIGNMENT_EXPORT,
+      // 课程模块
+      Permission.COURSE_CREATE,
+      Permission.COURSE_READ,
+      Permission.COURSE_UPDATE,
+      Permission.COURSE_DELETE,
+      Permission.COURSE_SCHEDULE,
+      Permission.COURSE_ATTENDANCE,
+      Permission.COURSE_EXPORT,
+      // 教学资源模块
+      Permission.RESOURCE_CREATE,
+      Permission.RESOURCE_READ,
+      Permission.RESOURCE_UPDATE,
+      Permission.RESOURCE_DELETE,
+      Permission.RESOURCE_DOWNLOAD,
+      Permission.RESOURCE_MANAGE,
+      // 班级模块
+      Permission.CLASS_CREATE,
+      Permission.CLASS_READ,
+      Permission.CLASS_UPDATE,
+      Permission.CLASS_DELETE,
+      Permission.CLASS_MANAGE_STUDENTS,
+      // 通知模块
+      Permission.NOTIFICATION_CREATE,
+      Permission.NOTIFICATION_READ,
+      Permission.NOTIFICATION_UPDATE,
+      Permission.NOTIFICATION_DELETE,
+      Permission.NOTIFICATION_PUBLISH,
+      // 反馈模块
+      Permission.FEEDBACK_READ,
+      Permission.FEEDBACK_REPLY,
+      Permission.FEEDBACK_MANAGE,
+      // 数据分析模块
+      Permission.ANALYTICS_READ,
+      Permission.ANALYTICS_EXPORT,
+      Permission.ANALYTICS_PROGRESS,
+      Permission.ANALYTICS_ATTENDANCE,
+      Permission.ANALYTICS_SCORES,
+      // 用户模块（查看用户列表用于搜索联系人等）
+      Permission.USER_READ,
+      // 机构模块
+      Permission.INSTITUTION_READ,
     ],
     STUDENT: [
-      'course:read', 'homework:read', 'homework:submit',
-      'exam:read', 'exam:take', 'exam:review',
-      'resource:read', 'mistake:read',
-      'message:send', 'message:read',
-      'notification:read', 'feedback:create',
-      'ai:use',
+      // 作业模块
+      Permission.ASSIGNMENT_READ,
+      Permission.ASSIGNMENT_SUBMIT,
+      // 课程模块
+      Permission.COURSE_READ,
+      Permission.COURSE_ATTENDANCE,
+      // 教学资源模块
+      Permission.RESOURCE_READ,
+      Permission.RESOURCE_DOWNLOAD,
+      // 班级模块
+      Permission.CLASS_READ,
+      // 通知模块
+      Permission.NOTIFICATION_READ,
+      // 反馈模块
+      Permission.FEEDBACK_CREATE,
+      Permission.FEEDBACK_READ,
+      // 数据分析模块
+      Permission.ANALYTICS_READ,
+      Permission.ANALYTICS_PROGRESS,
+      // 用户模块（查看用户列表用于搜索联系人等）
+      Permission.USER_READ,
     ],
     PARENT: [
-      'student:read', 'course:read', 'homework:read',
-      'exam:read', 'grade:read', 'attendance:read',
-      'message:send', 'message:read',
-      'notification:read', 'feedback:create',
+      // 作业模块
+      Permission.ASSIGNMENT_READ,
+      // 课程模块
+      Permission.COURSE_READ,
+      // 班级模块
+      Permission.CLASS_READ,
+      // 通知模块
+      Permission.NOTIFICATION_READ,
+      // 反馈模块
+      Permission.FEEDBACK_CREATE,
+      Permission.FEEDBACK_READ,
+      // 数据分析模块
+      Permission.ANALYTICS_READ,
+      Permission.ANALYTICS_SCORES,
+      Permission.ANALYTICS_ATTENDANCE,
+      // 用户模块（查看用户列表用于搜索联系人等）
+      Permission.USER_READ,
+      // 机构模块
+      Permission.INSTITUTION_READ,
     ],
   };
 
