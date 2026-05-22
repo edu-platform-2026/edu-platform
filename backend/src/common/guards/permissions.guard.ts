@@ -19,7 +19,7 @@ import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 export class PermissionsGuard implements CanActivate {
   private readonly logger = new Logger(PermissionsGuard.name);
 
-  // 各角色默认权限映射 - 使用 Permission 枚举的实际值
+  // 各角色默认权限映射
   private static readonly DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     TEACHER: [
       // 作业模块
@@ -66,10 +66,18 @@ export class PermissionsGuard implements CanActivate {
       Permission.ANALYTICS_PROGRESS,
       Permission.ANALYTICS_ATTENDANCE,
       Permission.ANALYTICS_SCORES,
-      // 用户模块（查看用户列表用于搜索联系人等）
+      // 用户模块
       Permission.USER_READ,
       // 机构模块
       Permission.INSTITUTION_READ,
+      // 消息模块
+      Permission.MESSAGE_CREATE,
+      Permission.MESSAGE_READ,
+      Permission.MESSAGE_DELETE,
+      Permission.MESSAGE_MANAGE,
+      // 邀请模块
+      Permission.INVITATION_CREATE,
+      Permission.INVITATION_READ,
     ],
     STUDENT: [
       // 作业模块
@@ -91,8 +99,11 @@ export class PermissionsGuard implements CanActivate {
       // 数据分析模块
       Permission.ANALYTICS_READ,
       Permission.ANALYTICS_PROGRESS,
-      // 用户模块（查看用户列表用于搜索联系人等）
+      // 用户模块
       Permission.USER_READ,
+      // 消息模块
+      Permission.MESSAGE_CREATE,
+      Permission.MESSAGE_READ,
     ],
     PARENT: [
       // 作业模块
@@ -110,10 +121,13 @@ export class PermissionsGuard implements CanActivate {
       Permission.ANALYTICS_READ,
       Permission.ANALYTICS_SCORES,
       Permission.ANALYTICS_ATTENDANCE,
-      // 用户模块（查看用户列表用于搜索联系人等）
+      // 用户模块
       Permission.USER_READ,
       // 机构模块
       Permission.INSTITUTION_READ,
+      // 消息模块
+      Permission.MESSAGE_CREATE,
+      Permission.MESSAGE_READ,
     ],
   };
 
@@ -163,10 +177,6 @@ export class PermissionsGuard implements CanActivate {
         effectivePermissions.add(perm);
       }
     }
-
-    this.logger.debug(
-      `权限守卫：用户 ${user.id} 角色=${userRoles.join(',')} 有效权限数=${effectivePermissions.size}`,
-    );
 
     // 检查用户是否拥有所需的所有权限
     const missingPermissions = requiredPermissions.filter(
