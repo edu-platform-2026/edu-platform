@@ -50,8 +50,9 @@ const ParentFeedback: React.FC = () => {
       message.success('提交成功');
       setModalVisible(false);
       fetchFeedbacks();
-    } catch {
-      // validation failed
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      message.error(err?.message || '提交失败，请重试');
     }
   };
 
