@@ -7,6 +7,10 @@ export const courseService = {
     return api.get<any, PaginatedResponse<Course>>('/courses', { params });
   },
 
+  getMyCourses: () => {
+    return api.get<any, ApiResponse<Course[]>>('/courses/my/list');
+  },
+
   getCourse: (id: string) => {
     return api.get<any, ApiResponse<Course>>(`/courses/${id}`);
   },
@@ -16,7 +20,7 @@ export const courseService = {
   },
 
   updateCourse: (id: string, data: Partial<CreateCourseRequest>) => {
-    return api.patch<any, ApiResponse<Course>>(`/courses/${id}`, data);
+    return api.put<any, ApiResponse<Course>>(`/courses/${id}`, data);
   },
 
   deleteCourse: (id: string) => {
@@ -24,19 +28,19 @@ export const courseService = {
   },
 
   getSchedules: (params?: QueryParams) => {
-    return api.get<any, ApiResponse<Schedule[]>>('/courses/schedules', { params });
+    return api.get<any, ApiResponse<Schedule[]>>('/schedules', { params });
   },
 
   getMySchedules: () => {
-    return api.get<any, ApiResponse<Schedule[]>>('/courses/schedules/my');
+    return api.get<any, ApiResponse<Schedule[]>>('/schedules/my');
   },
 
   createAttendance: (data: { scheduleId: string; records: { studentId: string; status: string; remark?: string }[] }) => {
-    return api.post<any, ApiResponse<Attendance[]>>('/courses/attendance', data);
+    return api.post<any, ApiResponse<Attendance[]>>('/attendances', data);
   },
 
   getAttendance: (scheduleId: string, date: string) => {
-    return api.get<any, ApiResponse<Attendance[]>>(`/courses/attendance`, {
+    return api.get<any, ApiResponse<Attendance[]>>('/attendances', {
       params: { scheduleId, date },
     });
   },
