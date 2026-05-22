@@ -41,7 +41,7 @@ export class MessagesService {
 
     const where: any = { institutionId };
 
-    if (filters?.type != null && filters?.type !== '' && !isNaN(Number(filters.type))) {
+    if (filters?.type != null && !isNaN(Number(filters.type))) {
       where.type = Number(filters.type);
     }
 
