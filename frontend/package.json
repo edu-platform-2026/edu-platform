@@ -10,18 +10,19 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "antd": "^5.12.8",
-    "@ant-design/icons": "^5.2.6",
     "@ant-design/charts": "^2.0.3",
+    "@ant-design/icons": "^5.2.6",
+    "antd": "^5.12.8",
+    "axios": "^1.6.5",
+    "dayjs": "^1.11.10",
+    "echarts": "^5.4.3",
+    "echarts-for-react": "^3.0.2",
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
-    "zustand": "^4.4.7",
-    "axios": "^1.6.5",
     "socket.io-client": "^4.7.4",
-    "echarts": "^5.4.3",
-    "echarts-for-react": "^3.0.2",
-    "dayjs": "^1.11.10"
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.47",
