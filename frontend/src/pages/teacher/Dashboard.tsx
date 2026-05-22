@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, List, Tag, Typography, Space, Spin, Empty } from 'antd';
+import { Row, Col, Card, Statistic, List, Tag, Typography, Space, Spin, Empty, Table } from 'antd';
 import {
   BookOutlined,
   TeamOutlined,
@@ -7,14 +7,13 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
-import ReactECharts from 'echarts-for-react';
 import { analyticsService, DashboardStats } from '../../services/analyticsService';
 import { courseService } from '../../services/courseService';
 import { Schedule } from '../../types/course';
 import { formatTime, getDayOfWeekLabel } from '../../utils/date';
 import PageHeader from '../../components/common/PageHeader';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const TeacherDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -101,36 +100,26 @@ const TeacherDashboard: React.FC = () => {
     },
   ];
 
-  const chartOption = {
-    tooltip: {
-      trigger: 'axis' as const,
+  /* ---- 本周课程分布 Table ---- */
+  const weekCourseData = [
+    { key: 1, day: '周一', count: 4 },
+    { key: 2, day: '周二', count: 3 },
+    { key: 3, day: '周三', count: 5 },
+    { key: 4, day: '周四', count: 2 },
+    { key: 5, day: '周五', count: 4 },
+    { key: 6, day: '周六', count: 1 },
+    { key: 7, day: '周日', count: 0 },
+  ];
+
+  const weekCourseColumns = [
+    { title: '星期', dataIndex: 'day', key: 'day' },
+    {
+      title: '课程数',
+      dataIndex: 'count',
+      key: 'count',
+      render: (count: number) => <span style={{ fontWeight: 600, color: '#1677ff' }}>{count} 节</span>,
     },
-    xAxis: {
-      type: 'category' as const,
-      data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-    },
-    yAxis: {
-      type: 'value' as const,
-      name: '课程数',
-    },
-    series: [
-      {
-        name: '课程数',
-        type: 'bar',
-        data: [4, 3, 5, 2, 4, 1, 0],
-        itemStyle: {
-          color: '#1677ff',
-          borderRadius: [4, 4, 0, 0],
-        },
-      },
-    ],
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true,
-    },
-  };
+  ];
 
   const recentAssignments = [
     { id: '1', title: '高等数学期中测试', course: '高等数学', dueDate: '2024-01-15', submitted: 35, total: 42 },
@@ -177,7 +166,12 @@ const TeacherDashboard: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={16}>
           <Card title="本周课程分布" bordered={false}>
-            <ReactECharts option={chartOption} style={{ height: 300 }} />
+            <Table
+              dataSource={weekCourseData}
+              columns={weekCourseColumns}
+              pagination={false}
+              size="middle"
+            />
           </Card>
         </Col>
         <Col xs={24} lg={8}>
