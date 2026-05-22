@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Avatar, Space, Badge } from 'antd';
 import {
   HomeOutlined,
@@ -6,10 +6,12 @@ import {
   LineChartOutlined,
   MessageOutlined,
   UserOutlined,
+  BellOutlined,
+  ShareAltOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import NotificationBell from '../components/common/NotificationBell';
+import { notificationService } from '../services/notificationService';
 
 const { Header, Content } = Layout;
 
@@ -18,15 +20,31 @@ interface ParentLayoutProps {
 }
 
 const ParentLayout: React.FC<ParentLayoutProps> = ({ children }) => {
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await notificationService.getUnreadCount();
+        setUnreadCount((res as any)?.data?.unreadCount ?? 0);
+      } catch { /* ignore */ }
+    };
+    fetchUnread();
+    const timer = setInterval(fetchUnread, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const tabs = [
     { key: '/parent/dashboard', title: '首页', icon: HomeOutlined },
     { key: '/parent/assignments', title: '作业', icon: FileTextOutlined },
     { key: '/parent/progress', title: '进度', icon: LineChartOutlined },
     { key: '/parent/feedback', title: '反馈', icon: MessageOutlined },
+    { key: '/parent/messages', title: '私信', icon: BellOutlined },
+    { key: '/parent/notifications-center', title: '通知', icon: BellOutlined },
+    { key: '/parent/profile', title: '我的', icon: UserOutlined },
   ];
 
   const handleLogout = () => {
@@ -54,7 +72,7 @@ const ParentLayout: React.FC<ParentLayoutProps> = ({ children }) => {
           </span>
         </Space>
         <Space>
-          <NotificationBell color="#fff" />
+          <Badge count={unreadCount} size="small"><BellOutlined style={{ fontSize: 20, cursor: 'pointer', color: '#fff' }} onClick={() => navigate('/parent/notifications-center')} /></Badge>
           <Avatar
             size="small"
             icon={<UserOutlined />}
