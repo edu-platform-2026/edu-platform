@@ -17,6 +17,7 @@ import Messages from '../pages/common/Messages';
 import CourseVideos from '../pages/teacher/CourseVideos';
 import NotificationCenter from '../pages/common/NotificationCenter';
 import Invite from '../pages/common/Invite';
+import TeacherInvitations from '../pages/teacher/Invitations';
 
 const TeacherRoutes: React.FC = () => {
   return (
@@ -37,6 +38,7 @@ const TeacherRoutes: React.FC = () => {
         <Route path="messages" element={<Messages />} />
         <Route path="notifications-center" element={<NotificationCenter />} />
         <Route path="invite" element={<Invite />} />
+        <Route path="invitations" element={<TeacherInvitations />} />
         <Route path="profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
