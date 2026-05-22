@@ -5,6 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { join } from 'path';
+import * as express from 'express';
 
 /**
  * 应用启动入口
@@ -27,9 +29,9 @@ async function bootstrap() {
   // 设置 API 前缀
   app.setGlobalPrefix(apiPrefix);
 
-  // 配置 CORS
+  // 配置 CORS - 允许所有来源（演示环境）
   app.enableCors({
-    origin: corsOrigin.split(',').map((origin) => origin.trim()),
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -39,7 +41,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // 自动剥离未在 DTO 中定义的属性
-      forbidNonWhitelisted: true, // 如果存在未定义的属性则抛出错误
+      forbidNonWhitelisted: false, // 不报错，只忽略多余字段
       transform: true, // 自动将请求数据转换为 DTO 实例
       transformOptions: {
         enableImplicitConversion: true, // 启用隐式类型转换
@@ -105,6 +107,17 @@ async function bootstrap() {
       operationsSorter: 'alpha', // 按字母排序操作
     },
     customSiteTitle: '教育管理平台 - API 文档',
+  });
+
+  // SPA 回退：所有非 API/静态文件请求返回 index.html
+  const publicPath = join(__dirname, '..', 'public');
+  app.use(express.static(publicPath));
+  // 必须在所有 API 路由之后注册 catch-all
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/docs')) {
+      return next();
+    }
+    res.sendFile(join(publicPath, 'index.html'));
   });
 
   // 启动应用
