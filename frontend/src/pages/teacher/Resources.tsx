@@ -67,8 +67,9 @@ const TeacherResources: React.FC = () => {
       message.success('上传成功');
       setModalVisible(false);
       fetchResources();
-    } catch {
-      // validation failed
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      message.error(err?.message || '上传失败，请重试');
     }
   };
 
@@ -78,8 +79,7 @@ const TeacherResources: React.FC = () => {
       message.success('删除成功');
       fetchResources();
     } catch {
-      message.success('删除成功');
-      setResources((prev) => prev.filter((r) => r.id !== id));
+      message.error('删除失败，请重试');
     }
   };
 
