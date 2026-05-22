@@ -37,13 +37,19 @@ export class ClassesService {
       homeroomTeacherId?: string;
     },
   ) {
-    const { page = 1, pageSize = 10, sortBy = 'createdAt', sortOrder = 'desc' } = paginationDto || {};
+    const page = Number(paginationDto?.page) || 1;
+    const pageSize = Number(paginationDto?.pageSize) || 10;
+    const sortBy = paginationDto?.sortBy || 'createdAt';
+    const sortOrder = paginationDto?.sortOrder || 'desc';
 
     // 构建查询条件
     const where: any = { institutionId };
 
-    if (filters?.status != null) {
-      where.status = Number(filters.status);
+    if (filters?.status !== undefined && filters?.status !== null) {
+      const statusNum = Number(filters.status);
+      if (!isNaN(statusNum)) {
+        where.status = statusNum;
+      }
     }
 
     if (filters?.grade) {
