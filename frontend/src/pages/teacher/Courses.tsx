@@ -97,8 +97,9 @@ const TeacherCourses: React.FC = () => {
       }
       setModalVisible(false);
       fetchCourses();
-    } catch {
-      // validation failed
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      message.error(err?.message || '操作失败，请重试');
     }
   };
 
