@@ -32,8 +32,7 @@ import { Role } from '../../common/enums/role.enum';
 import { Permission } from '../../common/enums/permission.enum';
 
 /**
- * 反馈管理控制器
- * 处理反馈 CRUD、回复等请求
+ * 鍙嶉绠＄悊鎺у埗鍣? * 澶勭悊鍙嶉 CRUD銆佸洖澶嶇瓑璇锋眰
  */
 @ApiTags('feedback')
 @ApiBearerAuth('access-token')
@@ -43,41 +42,41 @@ export class FeedbackController {
   constructor(private readonly feedbackService: FeedbackService) {}
 
   /**
-   * 获取反馈列表
+   * 鑾峰彇鍙嶉鍒楄〃
    */
   @Get()
   @RequirePermissions(Permission.FEEDBACK_READ)
   @ApiOperation({
-    summary: '获取反馈列表',
-    description: '分页获取反馈列表，支持按关键词、类型、状态筛选',
+    summary: '鑾峰彇鍙嶉鍒楄〃',
+    description: '鍒嗛〉鑾峰彇鍙嶉鍒楄〃锛屾敮鎸佹寜鍏抽敭璇嶃€佺被鍨嬨€佺姸鎬佺瓫閫?,
   })
-  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 200, description: '鑾峰彇鎴愬姛' })
   async findAll(
     @CurrentUser('institutionId') institutionId: string,
     @Query() paginationDto: PaginationDto,
     @Query('keyword') keyword?: string,
-    @Query('type') type?: number,
+    @Query('category') category?: string,
     @Query('status') status?: number,
-    @Query('userId') userId?: string,
+    @Query('parentId') parentId?: string,
   ) {
     return this.feedbackService.findAll(institutionId, paginationDto, {
       keyword,
-      type,
+      category,
       status,
-      userId,
+      parentId,
     });
   }
 
   /**
-   * 获取我的反馈
+   * 鑾峰彇鎴戠殑鍙嶉
    */
   @Get('my')
   @RequirePermissions(Permission.FEEDBACK_READ)
   @ApiOperation({
-    summary: '获取我的反馈',
-    description: '获取当前用户提交的所有反馈',
+    summary: '鑾峰彇鎴戠殑鍙嶉',
+    description: '鑾峰彇褰撳墠鐢ㄦ埛鎻愪氦鐨勬墍鏈夊弽棣?,
   })
-  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 200, description: '鑾峰彇鎴愬姛' })
   async findMyFeedbacks(
     @CurrentUser('id') userId: string,
     @Query() paginationDto: PaginationDto,
@@ -86,31 +85,31 @@ export class FeedbackController {
   }
 
   /**
-   * 获取反馈详情
+   * 鑾峰彇鍙嶉璇︽儏
    */
   @Get(':id')
   @RequirePermissions(Permission.FEEDBACK_READ)
   @ApiOperation({
-    summary: '获取反馈详情',
-    description: '根据 ID 获取反馈详细信息，包含所有回复',
+    summary: '鑾峰彇鍙嶉璇︽儏',
+    description: '鏍规嵁 ID 鑾峰彇鍙嶉璇︾粏淇℃伅锛屽寘鍚墍鏈夊洖澶?,
   })
-  @ApiParam({ name: 'id', description: '反馈 ID' })
-  @ApiResponse({ status: 200, description: '获取成功' })
-  @ApiResponse({ status: 404, description: '反馈不存在' })
+  @ApiParam({ name: 'id', description: '鍙嶉 ID' })
+  @ApiResponse({ status: 200, description: '鑾峰彇鎴愬姛' })
+  @ApiResponse({ status: 404, description: '鍙嶉涓嶅瓨鍦? })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.feedbackService.findById(id);
   }
 
   /**
-   * 创建反馈
+   * 鍒涘缓鍙嶉
    */
   @Post()
   @RequirePermissions(Permission.FEEDBACK_CREATE)
   @ApiOperation({
-    summary: '提交反馈',
-    description: '提交新的反馈',
+    summary: '鎻愪氦鍙嶉',
+    description: '鎻愪氦鏂扮殑鍙嶉',
   })
-  @ApiResponse({ status: 201, description: '提交成功' })
+  @ApiResponse({ status: 201, description: '鎻愪氦鎴愬姛' })
   async create(
     @CurrentUser('institutionId') institutionId: string,
     @CurrentUser('id') userId: string,
@@ -120,25 +119,25 @@ export class FeedbackController {
   }
 
   /**
-   * 更新反馈
+   * 鏇存柊鍙嶉
    */
   @Put(':id')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.FEEDBACK_UPDATE)
   @ApiOperation({
-    summary: '更新反馈',
-    description: '更新反馈信息或状态',
+    summary: '鏇存柊鍙嶉',
+    description: '鏇存柊鍙嶉淇℃伅鎴栫姸鎬?,
   })
-  @ApiParam({ name: 'id', description: '反馈 ID' })
-  @ApiResponse({ status: 200, description: '更新成功' })
-  @ApiResponse({ status: 404, description: '反馈不存在' })
+  @ApiParam({ name: 'id', description: '鍙嶉 ID' })
+  @ApiResponse({ status: 200, description: '鏇存柊鎴愬姛' })
+  @ApiResponse({ status: 404, description: '鍙嶉涓嶅瓨鍦? })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     body: {
       title?: string;
       content?: string;
-      type?: number;
+      category?: string;
       status?: number;
     },
   ) {
@@ -146,37 +145,37 @@ export class FeedbackController {
   }
 
   /**
-   * 删除反馈
+   * 鍒犻櫎鍙嶉
    */
   @Delete(':id')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.FEEDBACK_DELETE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '删除反馈',
-    description: '删除反馈',
+    summary: '鍒犻櫎鍙嶉',
+    description: '鍒犻櫎鍙嶉',
   })
-  @ApiParam({ name: 'id', description: '反馈 ID' })
-  @ApiResponse({ status: 200, description: '删除成功' })
-  @ApiResponse({ status: 404, description: '反馈不存在' })
+  @ApiParam({ name: 'id', description: '鍙嶉 ID' })
+  @ApiResponse({ status: 200, description: '鍒犻櫎鎴愬姛' })
+  @ApiResponse({ status: 404, description: '鍙嶉涓嶅瓨鍦? })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.feedbackService.remove(id);
-    return { message: '反馈删除成功' };
+    return { message: '鍙嶉鍒犻櫎鎴愬姛' };
   }
 
   /**
-   * 回复反馈
+   * 鍥炲鍙嶉
    */
   @Post(':id/reply')
   @Roles(Role.ADMIN, Role.TEACHER)
   @RequirePermissions(Permission.FEEDBACK_REPLY)
   @ApiOperation({
-    summary: '回复反馈',
-    description: '回复用户的反馈，可同时更新反馈状态',
+    summary: '鍥炲鍙嶉',
+    description: '鍥炲鐢ㄦ埛鐨勫弽棣堬紝鍙悓鏃舵洿鏂板弽棣堢姸鎬?,
   })
-  @ApiParam({ name: 'id', description: '反馈 ID' })
-  @ApiResponse({ status: 201, description: '回复成功' })
-  @ApiResponse({ status: 404, description: '反馈不存在' })
+  @ApiParam({ name: 'id', description: '鍙嶉 ID' })
+  @ApiResponse({ status: 201, description: '鍥炲鎴愬姛' })
+  @ApiResponse({ status: 404, description: '鍙嶉涓嶅瓨鍦? })
   async reply(
     @Param('id', ParseUUIDPipe) feedbackId: string,
     @CurrentUser('id') replierId: string,
