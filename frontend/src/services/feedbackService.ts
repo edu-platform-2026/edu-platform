@@ -16,11 +16,11 @@ export const feedbackService = {
   },
 
   replyFeedback: (id: string, data: { reply: string }) => {
-    return api.patch<any, ApiResponse<Feedback>>(`/feedback/${id}/reply`, data);
+    return api.post<any, ApiResponse<Feedback>>(`/feedback/${id}/reply`, data);
   },
 
-  updateFeedbackStatus: (id: string, status: string) => {
-    return api.patch<any, ApiResponse<Feedback>>(`/feedback/${id}/status`, { status });
+  updateFeedback: (id: string, data: Partial<{ status: string; reply: string }>) => {
+    return api.put<any, ApiResponse<Feedback>>(`/feedback/${id}`, data);
   },
 
   deleteFeedback: (id: string) => {
