@@ -1,18 +1,15 @@
-import React, { useState } from 'react';
-import { Card, Form, Input, Button, Select, Typography, Divider, Space, message } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Form, Input, Button, Select, Typography, Divider, Space, message, Tag } from 'antd';
 import {
-  UserOutlined,
-  LockOutlined,
-  MailOutlined,
-  PhoneOutlined,
-  SafetyCertificateOutlined,
-  IdcardOutlined,
+  UserOutlined, LockOutlined, MailOutlined, PhoneOutlined,
+  SafetyCertificateOutlined, IdcardOutlined, GiftOutlined,
 } from '@ant-design/icons';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/user';
-import { getRoleLabel, getRoleHomePath } from '../../utils/permission';
+import { getRoleLabel } from '../../utils/permission';
 import { useAuthStore } from '../../stores/authStore';
+import { invitationService } from '../../services/invitationService';
 
 const { Title, Text } = Typography;
 
@@ -23,18 +20,30 @@ const Register: React.FC = () => {
   const registerFn = useAuthStore((state) => state.register);
   const [searchParams] = useSearchParams();
   const inviteCode = searchParams.get('code') || '';
+  const [inviteInfo, setInviteInfo] = useState<any>(null);
+  const [form] = Form.useForm();
 
-  const onFinish = async (values: {
-    username: string;
-    password: string;
-    confirmPassword: string;
-    name: string;
-    email: string;
-    phone?: string;
-    role: UserRole;
-  }) => {
+  // Validate invite code on mount
+  useEffect(() => {
+    if (inviteCode) {
+      form.setFieldsValue({ invitationCode: inviteCode });
+      invitationService.checkCode(inviteCode).then((res: any) => {
+        if (res?.data) {
+          setInviteInfo(res.data);
+          if (res.data.role) {
+            form.setFieldsValue({ role: res.data.role });
+          }
+          message.success('Invitation code validated');
+        }
+      }).catch(() => {
+        message.warning('Invalid invitation code');
+      });
+    }
+  }, [inviteCode, form]);
+
+  const onFinish = async (values: any) => {
     if (values.password !== values.confirmPassword) {
-      message.error('两次输入的密码不一致');
+      message.error('Passwords do not match');
       return;
     }
     setLoading(true);
@@ -46,11 +55,12 @@ const Register: React.FC = () => {
         email: values.email,
         phone: values.phone,
         role: values.role,
+        invitationCode: values.invitationCode || undefined,
       });
-      message.success('注册成功');
+      message.success('Registration successful');
       navigate('/login');
     } catch (error: any) {
-      const msg = error?.response?.data?.message || '注册失败，请稍后重试';
+      const msg = error?.response?.data?.message || 'Registration failed';
       message.error(msg);
     } finally {
       setLoading(false);
@@ -61,25 +71,31 @@ const Register: React.FC = () => {
     <div className="login-container">
       <Card className="login-card" bordered={false}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={3} style={{ marginBottom: 8 }}>账号注册</Title>
-          <Text type="secondary">创建您的账号</Text>
+          <Title level={3} style={{ marginBottom: 8 }}>Account Registration</Title>
+          <Text type="secondary">Create your account</Text>
         </div>
 
+        {inviteInfo && (
+          <div style={{ marginBottom: 16, padding: '8px 12px', background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
+            <Tag color="green" icon={<GiftOutlined />}>Invited by: {inviteInfo.inviter?.realName || inviteInfo.inviter?.username || 'Unknown'}</Tag>
+          </div>
+        )}
+
         <Form
+          form={form}
           name="register"
           onFinish={onFinish}
           size="large"
           layout="vertical"
-          initialValues={{ role: UserRole.PARENT }}
+          initialValues={{ role: UserRole.PARENT, invitationCode: inviteCode }}
         >
-          <Form.Item
-            name="role"
-            rules={[{ required: true, message: '请选择角色' }]}
-          >
-            <Select
-              placeholder="请选择角色"
-              suffixIcon={<SafetyCertificateOutlined />}
-            >
+          <Form.Item name="invitationCode" style={{ display: 'none' }}>
+            <Input />
+          </Form.Item>
+
+          <Form.Item name="role" rules={[{ required: true, message: 'Please select a role' }]}>
+            <Select placeholder="Select role" suffixIcon={<SafetyCertificateOutlined />}
+              disabled={!!inviteInfo?.role}>
               {[UserRole.PARENT, UserRole.STUDENT].map((role) => (
                 <Select.Option key={role} value={role}>
                   {getRoleLabel(role)}
@@ -88,110 +104,65 @@ const Register: React.FC = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item
-            name="username"
-            rules={[
-              { required: true, message: '请输入用户名' },
-              { min: 3, message: '用户名至少3个字符' },
-            ]}
-          >
-            <Input
-              prefix={<UserOutlined />}
-              placeholder="请输入用户名"
-            />
+          <Form.Item name="username" rules={[
+            { required: true, message: 'Please enter username' },
+            { min: 3, message: 'At least 3 characters' },
+          ]}>
+            <Input prefix={<UserOutlined />} placeholder="Username" />
           </Form.Item>
 
-          <Form.Item
-            name="name"
-            rules={[{ required: true, message: '请输入姓名' }]}
-          >
-            <Input
-              prefix={<IdcardOutlined />}
-              placeholder="请输入真实姓名"
-            />
+          <Form.Item name="name" rules={[{ required: true, message: 'Please enter your name' }]}>
+            <Input prefix={<IdcardOutlined />} placeholder="Real name" />
           </Form.Item>
 
-          <Form.Item
-            name="email"
-            rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '请输入有效的邮箱地址' },
-            ]}
-          >
-            <Input
-              prefix={<MailOutlined />}
-              placeholder="请输入邮箱"
-            />
+          <Form.Item name="email" rules={[
+            { required: true, message: 'Please enter email' },
+            { type: 'email', message: 'Invalid email format' },
+          ]}>
+            <Input prefix={<MailOutlined />} placeholder="Email" />
           </Form.Item>
 
           <Form.Item name="phone">
-            <Input
-              prefix={<PhoneOutlined />}
-              placeholder="请输入手机号（可选）"
-            />
+            <Input prefix={<PhoneOutlined />} placeholder="Phone (optional)" />
           </Form.Item>
 
-          <Form.Item
-            name="password"
-            rules={[
-              { required: true, message: '请输入密码' },
-              { min: 6, message: '密码至少6个字符' },
-              { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: '密码需包含大写、小写字母和数字' },
-            ]}
-          >
-            <Input.Password
-              prefix={<LockOutlined />}
-              placeholder="请输入密码"
-            />
+          <Form.Item name="password" rules={[
+            { required: true, message: 'Please enter password' },
+            { min: 8, message: 'At least 8 characters' },
+          ]}>
+            <Input.Password prefix={<LockOutlined />} placeholder="Password (8+ characters)" />
           </Form.Item>
 
-          <Form.Item
-            name="confirmPassword"
-            rules={[
-              { required: true, message: '请确认密码' },
-              ({ getFieldValue }) => ({
-                validator(_, value) {
-                  if (!value || getFieldValue('password') === value) {
-                    return Promise.resolve();
-                  }
-                  return Promise.reject(new Error('两次输入的密码不一致'));
-                },
-              }),
-            ]}
-          >
-            <Input.Password
-              prefix={<LockOutlined />}
-              placeholder="请确认密码"
-            />
+          <Form.Item name="confirmPassword" rules={[
+            { required: true, message: 'Please confirm password' },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue('password') === value) return Promise.resolve();
+                return Promise.reject(new Error('Passwords do not match'));
+              },
+            }),
+          ]}>
+            <Input.Password prefix={<LockOutlined />} placeholder="Confirm password" />
           </Form.Item>
 
           <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              loading={loading}
-            >
-              注册
+            <Button type="primary" htmlType="submit" block loading={loading}>
+              Register
             </Button>
           </Form.Item>
         </Form>
 
         <Divider plain>
-          <Text type="secondary" style={{ fontSize: 12 }}>其他操作</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>Other actions</Text>
         </Divider>
-
         <div style={{ textAlign: 'center' }}>
           <Space>
-            <Text type="secondary">已有账号？</Text>
-            <Link to="/login">立即登录</Link>
+            <Text type="secondary">Already have an account?</Text>
+            <Link to="/login">Login now</Link>
           </Space>
         </div>
-
         <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <Link to="/" style={{ color: 'rgba(0,0,0,0.45)' }}>
-            返回首页
-          </Link>
+          <Link to="/" style={{ color: 'rgba(0,0,0,0.45)' }}>Back to home</Link>
         </div>
       </Card>
     </div>
