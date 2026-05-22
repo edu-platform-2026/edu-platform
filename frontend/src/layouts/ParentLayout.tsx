@@ -1,23 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Avatar, Space, Badge } from 'antd';
+import { Layout, Avatar, Space, Badge, Dropdown } from 'antd';
 import {
-  HomeOutlined,
-  FileTextOutlined,
-  LineChartOutlined,
-  MessageOutlined,
-  UserOutlined,
-  BellOutlined,
-  ShareAltOutlined,
+  HomeOutlined, FileTextOutlined, LineChartOutlined, MessageOutlined,
+  UserOutlined, BellOutlined, LogoutOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { notificationService } from '../services/notificationService';
+import type { MenuProps } from 'antd';
 
 const { Header, Content } = Layout;
 
-interface ParentLayoutProps {
-  children: React.ReactNode;
-}
+interface ParentLayoutProps { children: React.ReactNode; }
 
 const ParentLayout: React.FC<ParentLayoutProps> = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -27,10 +21,7 @@ const ParentLayout: React.FC<ParentLayoutProps> = ({ children }) => {
 
   useEffect(() => {
     const fetchUnread = async () => {
-      try {
-        const res = await notificationService.getUnreadCount();
-        setUnreadCount((res as any)?.data?.unreadCount ?? 0);
-      } catch { /* ignore */ }
+      try { const res = await notificationService.getUnreadCount(); setUnreadCount((res as any)?.data?.unreadCount ?? 0); } catch {}
     };
     fetchUnread();
     const timer = setInterval(fetchUnread, 60000);
@@ -47,77 +38,55 @@ const ParentLayout: React.FC<ParentLayoutProps> = ({ children }) => {
     { key: '/parent/profile', title: '我的', icon: UserOutlined },
   ];
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
+  const userMenuItems: MenuProps['items'] = [
+    { key: 'profile', icon: <UserOutlined />, label: '个人信息' },
+    { type: 'divider' },
+    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
+  ];
+
+  const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
+    if (key === 'logout') { logout(); navigate('/login', { replace: true }); }
+    else if (key === 'profile') { navigate('/parent/profile'); }
   };
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <Header
-        style={{
-          background: '#1677ff',
-          padding: '0 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-        }}
-      >
-        <Space>
-          <span style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>
-            家长端
-          </span>
-        </Space>
-        <Space>
-          <Badge count={unreadCount} size="small"><BellOutlined style={{ fontSize: 20, cursor: 'pointer', color: '#fff' }} onClick={() => navigate('/parent/notifications-center')} /></Badge>
-          <Avatar
-            size="small"
-            icon={<UserOutlined />}
-            src={user?.avatar}
-            onClick={handleLogout}
-            style={{ cursor: 'pointer' }}
-          />
+      <Header style={{
+        background: '#1677ff', padding: '0 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'sticky', top: 0, zIndex: 100, height: 56,
+      }}>
+        <span style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>家长端</span>
+        <Space size="middle">
+          <Badge count={unreadCount} size="small">
+            <BellOutlined style={{ fontSize: 20, cursor: 'pointer', color: '#fff' }} onClick={() => navigate('/parent/notifications-center')} />
+          </Badge>
+          <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight">
+            <Avatar size="small" icon={<UserOutlined />} src={user?.avatar} style={{ cursor: 'pointer' }} />
+          </Dropdown>
         </Space>
       </Header>
-      <Content style={{ padding: '16px', paddingBottom: '70px' }}>
-        {children}
-      </Content>
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: '#fff',
-          boxShadow: '0 -1px 4px rgba(0,0,0,0.08)',
-          zIndex: 100,
-          display: 'flex',
-          justifyContent: 'space-around',
-          padding: '8px 0',
-        }}
-      >
+
+      <Content style={{ padding: '12px', paddingBottom: '70px' }}>{children}</Content>
+
+      {/* 底部 Tab 栏 - 已经是手机端友好设计 */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff',
+        boxShadow: '0 -1px 4px rgba(0,0,0,0.08)', zIndex: 100,
+        display: 'flex', justifyContent: 'space-around', padding: '6px 0',
+      }}>
         {tabs.map((tab) => {
           const isActive = location.pathname === tab.key;
           const Icon = tab.icon;
           return (
-            <div
-              key={tab.key}
-              onClick={() => navigate(tab.key)}
+            <div key={tab.key} onClick={() => navigate(tab.key)}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                cursor: 'pointer',
-                padding: '4px 12px',
-                color: isActive ? '#1677ff' : '#999',
-                transition: 'color 0.2s',
-              }}
-            >
+                display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer',
+                padding: '4px 8px', color: isActive ? '#1677ff' : '#999', transition: 'color 0.2s',
+                minWidth: 0, flex: 1,
+              }}>
               <Icon style={{ fontSize: 20 }} />
-              <span style={{ fontSize: 12, marginTop: 4 }}>{tab.title}</span>
+              <span style={{ fontSize: 11, marginTop: 2, whiteSpace: 'nowrap' }}>{tab.title}</span>
             </div>
           );
         })}
