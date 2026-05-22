@@ -9,85 +9,78 @@ import { Reflector } from '@nestjs/core';
 import { Permission } from '../enums/permission.enum';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 
+/**
+ * 权限守卫
+ * 根据 @RequirePermissions() 装饰器要求验证用户是否具有所需权限
+ * 管理员角色默认拥有所有权限
+ * 其他角色根据 DEFAULT_ROLE_PERMISSIONS 自动获得默认权限
+ */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   private readonly logger = new Logger(PermissionsGuard.name);
 
+  // 各角色默认权限映射
   private static readonly DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
-    ADMIN: ['*'],
     TEACHER: [
-      'assignment:create', 'assignment:read', 'assignment:update', 'assignment:delete',
-      'assignment:grade', 'assignment:submit', 'assignment:export',
       'course:create', 'course:read', 'course:update', 'course:delete',
-      'course:schedule', 'course:attendance', 'course:export',
+      'homework:create', 'homework:read', 'homework:update', 'homework:delete',
+      'exam:create', 'exam:read', 'exam:update', 'exam:delete',
+      'student:read', 'attendance:manage', 'grade:manage',
       'resource:create', 'resource:read', 'resource:update', 'resource:delete',
-      'resource:download', 'resource:manage',
-      'class:create', 'class:read', 'class:update', 'class:delete',
-      'class:manage_students', 'class:export',
-      'notification:create', 'notification:read', 'notification:update',
-      'notification:delete', 'notification:publish',
-      'feedback:create', 'feedback:read', 'feedback:reply', 'feedback:update',
-      'feedback:delete', 'feedback:manage',
-      'analytics:read', 'analytics:export', 'analytics:progress',
-      'analytics:attendance', 'analytics:scores',
-      'user:read', 'user:create', 'user:update',
-      'institution:read',
-      'message:read', 'message:create', 'message:update', 'message:delete',
+      'message:send', 'message:read', 'message:manage',
+      'notification:read', 'notification:create',
+      'feedback:read', 'feedback:reply',
+      'ai:use', 'invitation:create', 'invitation:read',
     ],
     STUDENT: [
-      'assignment:read', 'assignment:submit',
-      'course:read',
-      'resource:read', 'resource:download',
-      'class:read',
-      'notification:read',
-      'feedback:create', 'feedback:read',
-      'analytics:read', 'analytics:progress',
-      'user:read',
-      'message:read', 'message:create', 'message:update', 'message:delete',
+      'course:read', 'homework:read', 'homework:submit',
+      'exam:read', 'exam:take', 'exam:review',
+      'resource:read', 'mistake:read',
+      'message:send', 'message:read',
+      'notification:read', 'feedback:create',
+      'ai:use',
     ],
     PARENT: [
-      'assignment:read',
-      'course:read',
-      'resource:read',
-      'class:read',
-      'notification:read',
-      'feedback:create', 'feedback:read',
-      'analytics:read', 'analytics:progress',
-      'user:read',
-      'message:read', 'message:create', 'message:update', 'message:delete',
+      'student:read', 'course:read', 'homework:read',
+      'exam:read', 'grade:read', 'attendance:read',
+      'message:send', 'message:read',
+      'notification:read', 'feedback:create',
     ],
   };
 
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    // 获取路由所需的权限列表
     const requiredPermissions = this.reflector.getAllAndOverride<Permission[]>(
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
     );
 
+    // 如果没有设置权限要求，直接放行
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
     }
 
+    // 获取当前请求中的用户信息
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
     if (!user) {
+      this.logger.warn('权限守卫：请求中未找到用户信息');
       throw new ForbiddenException('用户未认证');
     }
 
+    // 管理员角色默认拥有所有权限
     const userRoles: string[] = user.roles || [];
-
-    // Admin bypasses all permission checks
     if (userRoles.includes('ADMIN')) {
       return true;
     }
 
-    // Always build permissions from role defaults + JWT permissions
+    // 始终合并角色默认权限 + JWT中的权限
     const effectivePermissions = new Set<string>();
 
-    // Add default permissions based on role
+    // 添加角色默认权限
     for (const role of userRoles) {
       const defaultPerms = PermissionsGuard.DEFAULT_ROLE_PERMISSIONS[role] || [];
       for (const perm of defaultPerms) {
@@ -95,24 +88,28 @@ export class PermissionsGuard implements CanActivate {
       }
     }
 
-    // Also add JWT permissions (may supplement defaults)
+    // 添加JWT中的权限（数据库中配置的权限）
     if (user.permissions && Array.isArray(user.permissions)) {
       for (const perm of user.permissions) {
         effectivePermissions.add(perm);
       }
     }
 
-    // Check if user has all required permissions
+    this.logger.debug(
+      `权限守卫：用户 ${user.id} 角色=${userRoles.join(',')} 有效权限数=${effectivePermissions.size}`,
+    );
+
+    // 检查用户是否拥有所需的所有权限
     const missingPermissions = requiredPermissions.filter(
       (permission) => !effectivePermissions.has(permission),
     );
 
     if (missingPermissions.length > 0) {
       this.logger.warn(
-        `User ${user.id} missing permissions: ${missingPermissions.join(', ')}`,
+        `权限守卫：用户 ${user.id} 缺少权限: ${missingPermissions.join(', ')}`,
       );
       throw new ForbiddenException(
-        `权限不足，缺少: ${missingPermissions.join(', ')}`,
+        `权限不足，缺少以下权限: ${missingPermissions.join(', ')}`,
       );
     }
 
