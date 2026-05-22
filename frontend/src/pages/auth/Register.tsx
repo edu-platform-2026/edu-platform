@@ -8,7 +8,7 @@ import {
   SafetyCertificateOutlined,
   IdcardOutlined,
 } from '@ant-design/icons';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/user';
 import { getRoleLabel, getRoleHomePath } from '../../utils/permission';
@@ -19,8 +19,10 @@ const { Title, Text } = Typography;
 const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { register, isAuthenticated, user } = useAuth();
   const registerFn = useAuthStore((state) => state.register);
+  const [searchParams] = useSearchParams();
+  const inviteCode = searchParams.get('code') || '';
 
   const onFinish = async (values: {
     username: string;
@@ -134,6 +136,7 @@ const Register: React.FC = () => {
             rules={[
               { required: true, message: '请输入密码' },
               { min: 6, message: '密码至少6个字符' },
+              { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: '密码需包含大写、小写字母和数字' },
             ]}
           >
             <Input.Password
