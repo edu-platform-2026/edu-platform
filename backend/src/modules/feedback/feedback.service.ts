@@ -8,21 +8,12 @@ import { PaginationDto, createPaginatedResult } from '../../common/dto/paginatio
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { ReplyFeedbackDto } from './dto/reply-feedback.dto';
 
-/**
- * 鍙嶉鏈嶅姟
- * 澶勭悊鍙嶉 CRUD銆佸洖澶嶇瓑涓氬姟閫昏緫
- *
- * 鍙嶉鐘舵€侊細
- * - 1: 寰呭鐞? * - 2: 澶勭悊涓? * - 3: 宸插洖澶? * - 4: 宸插叧闂? */
 @Injectable()
 export class FeedbackService {
   private readonly logger = new Logger(FeedbackService.name);
 
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * 鑾峰彇鍙嶉鍒楄〃锛堝垎椤碉級
-   */
   async findAll(
     institutionId: string,
     paginationDto: PaginationDto,
@@ -86,9 +77,6 @@ export class FeedbackService {
     return createPaginatedResult(feedbacks, total, page, pageSize);
   }
 
-  /**
-   * 鑾峰彇鍙嶉璇︽儏
-   */
   async findById(id: string) {
     const feedback = await this.prisma.feedback.findUnique({
       where: { id },
@@ -119,15 +107,12 @@ export class FeedbackService {
     });
 
     if (!feedback) {
-      throw new NotFoundException(`鍙嶉涓嶅瓨鍦? ${id}`);
+      throw new NotFoundException('Feedback not found: ' + id);
     }
 
     return feedback;
   }
 
-  /**
-   * 鍒涘缓鍙嶉
-   */
   async create(institutionId: string, parentId: string, dto: CreateFeedbackDto) {
     const feedback = await this.prisma.feedback.create({
       data: {
@@ -136,9 +121,10 @@ export class FeedbackService {
         teacherId: dto.teacherId || null,
         title: dto.title || null,
         content: dto.content,
-        category: dto.category || '鍏朵粬',
+        category: dto.category || 'other',
         attachments: dto.attachments || undefined,
-        status: 1, // 榛樿寰呭鐞?      },
+        status: 1,
+      },
       include: {
         parent: {
           select: {
@@ -149,13 +135,10 @@ export class FeedbackService {
       },
     });
 
-    this.logger.log(`鍙嶉鍒涘缓鎴愬姛: ${dto.title || dto.content.substring(0, 20)}`);
+    this.logger.log('Feedback created: ' + (dto.title || dto.content.substring(0, 20)));
     return feedback;
   }
 
-  /**
-   * 鏇存柊鍙嶉淇℃伅
-   */
   async update(
     id: string,
     data: {
@@ -170,7 +153,7 @@ export class FeedbackService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`鍙嶉涓嶅瓨鍦? ${id}`);
+      throw new NotFoundException('Feedback not found: ' + id);
     }
 
     const updateData: any = {};
@@ -187,48 +170,43 @@ export class FeedbackService {
       data: updateData,
     });
 
-    this.logger.log(`鍙嶉鏇存柊鎴愬姛: ${id}`);
+    this.logger.log('Feedback updated: ' + id);
     return feedback;
   }
 
-  /**
-   * 鍒犻櫎鍙嶉
-   */
   async remove(id: string) {
     const existing = await this.prisma.feedback.findUnique({
       where: { id },
     });
 
     if (!existing) {
-      throw new NotFoundException(`鍙嶉涓嶅瓨鍦? ${id}`);
+      throw new NotFoundException('Feedback not found: ' + id);
     }
 
     await this.prisma.feedback.delete({
       where: { id },
     });
 
-    this.logger.log(`鍙嶉宸插垹闄? ${id}`);
+    this.logger.log('Feedback deleted: ' + id);
   }
 
-  /**
-   * 鍥炲鍙嶉
-   * 鐩存帴鏇存柊鍙嶉鐨?reply 瀛楁鍜岀姸鎬?   */
   async reply(feedbackId: string, replierId: string, dto: ReplyFeedbackDto) {
     const feedback = await this.prisma.feedback.findUnique({
       where: { id: feedbackId },
     });
 
     if (!feedback) {
-      throw new NotFoundException(`鍙嶉涓嶅瓨鍦? ${feedbackId}`);
+      throw new NotFoundException('Feedback not found: ' + feedbackId);
     }
 
-    // 鏇存柊鍙嶉鐨勫洖澶嶅唴瀹瑰拰鐘舵€?    const updatedFeedback = await this.prisma.feedback.update({
+    const updatedFeedback = await this.prisma.feedback.update({
       where: { id: feedbackId },
       data: {
         reply: dto.content,
         repliedBy: replierId,
         repliedAt: new Date(),
-        status: dto.status || 3, // 榛樿宸插洖澶?      },
+        status: dto.status || 3,
+      },
       include: {
         replier: {
           select: {
@@ -240,12 +218,10 @@ export class FeedbackService {
       },
     });
 
-    this.logger.log(`鍙嶉 ${feedbackId} 宸插洖澶峘);
+    this.logger.log('Feedback replied: ' + feedbackId);
     return updatedFeedback;
   }
 
-  /**
-   * 鑾峰彇褰撳墠鐢ㄦ埛鐨勫弽棣堝垪琛?   */
   async findMyFeedbacks(userId: string, paginationDto: PaginationDto) {
     const page = Number(paginationDto?.page) || 1;
     const pageSize = Number(paginationDto?.pageSize) || 10;
