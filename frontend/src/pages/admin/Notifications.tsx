@@ -49,20 +49,44 @@ const AdminNotifications: React.FC = () => {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // 通知类型映射：前端字符串 → 后端整数
+  const typeMap: Record<string, number> = {
+    SYSTEM: 1,
+    ASSIGNMENT: 2,
+    COURSE: 3,
+    GENERAL: 5,
+  };
+
+  // 目标角色映射
+  const targetRoleMap: Record<string, string> = {
+    teachers: 'TEACHER',
+    students: 'STUDENT',
+    parents: 'PARENT',
+  };
+
   const handleSend = async () => {
     try {
       const values = await form.validateFields();
-      await notificationService.sendNotification({
+      const payload: any = {
         title: values.title,
         content: values.content,
-        type: values.type,
-        userIds: values.target === 'all' ? undefined : [values.target],
-      });
+        type: typeMap[values.type] || 5,
+      };
+      // 设置目标角色（all不传targetRole表示广播全体）
+      if (values.target && values.target !== 'all') {
+        payload.targetRole = targetRoleMap[values.target] || values.target;
+      }
+      await notificationService.sendNotification(payload);
       message.success('发送成功');
       setModalVisible(false);
       fetchNotifications();
-    } catch {
-      // validation failed
+    } catch (err: any) {
+      // 区分表单校验错误和API错误
+      if (err?.errorFields) {
+        // 表单校验失败，不做额外处理
+        return;
+      }
+      message.error(err?.message || '发送失败，请重试');
     }
   };
 
@@ -72,8 +96,7 @@ const AdminNotifications: React.FC = () => {
       message.success('删除成功');
       fetchNotifications();
     } catch {
-      message.success('删除成功');
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      message.error('删除失败，请重试');
     }
   };
 
