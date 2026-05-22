@@ -31,7 +31,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
     {
       title: (
         <span onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-          <HomeOutlined />
+          <HomeOutlined /> 首页
         </span>
       ),
     },
@@ -51,7 +51,9 @@ const PageHeader: React.FC<PageHeaderProps> = ({
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <Breadcrumb items={breadcrumbItems} style={{ marginBottom: 16 }} />
+      {breadcrumbs.length > 0 && (
+        <Breadcrumb items={breadcrumbItems} style={{ marginBottom: 16 }} />
+      )}
       <div
         style={{
           display: 'flex',
