@@ -31,7 +31,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
   imports: [
     // Static file serving - frontend build output
     ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), '..', 'frontend', 'dist'),
+      rootPath: '/opt/edu-platform/frontend/dist',
       exclude: ['/api/(.*)', '/docs', '/docs/(.*)'],
     }),
     // Global config module - loads environment variables
