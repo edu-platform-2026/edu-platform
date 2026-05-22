@@ -30,7 +30,7 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
         }}
       >
         <div style={{ fontSize: 20, fontWeight: 600, color: '#1677ff' }}>
-          教育管理平台
+          小黑教育管理平台
         </div>
         <Space>
           {isAuthenticated && user ? (
@@ -47,7 +47,7 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
       </Header>
       <Content>{children}</Content>
       <Footer style={{ textAlign: 'center', background: '#001529', color: 'rgba(255,255,255,0.65)' }}>
-        教育管理平台 &copy; {new Date().getFullYear()} 版权所有
+        小黑大王 &copy; {new Date().getFullYear()} 版权所有
       </Footer>
     </Layout>
   );
