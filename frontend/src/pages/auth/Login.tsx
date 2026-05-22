@@ -2,24 +2,36 @@ import React, { useState } from 'react';
 import { Card, Form, Input, Button, Select, Typography, Divider, Space, message } from 'antd';
 import { UserOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuthStore } from '../../stores/authStore';
 import { UserRole } from '../../types/user';
-import { getRoleLabel } from '../../utils/permission';
+import { getRoleLabel, getRoleHomePath } from '../../utils/permission';
 
 const { Title, Text } = Typography;
 
+/**
+ * 登录页面
+ * 支持多角色选择登录
+ */
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login: storeLogin } = useAuthStore();
 
   const onFinish = async (values: { username: string; password: string; role: UserRole }) => {
     setLoading(true);
     try {
-      await login(values.username, values.password, values.role);
+      const homePath = await storeLogin(values.username, values.password, values.role);
       message.success('登录成功');
+      // 确保状态更新后再跳转
+      setTimeout(() => {
+        navigate(homePath, { replace: true });
+      }, 150);
     } catch (error: any) {
-      const msg = error?.response?.data?.message || '登录失败，请检查用户名和密码';
+      // 提取后端返回的错误信息
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        '登录失败，请检查用户名和密码';
       message.error(msg);
     } finally {
       setLoading(false);
@@ -38,7 +50,7 @@ const Login: React.FC = () => {
           name="login"
           onFinish={onFinish}
           size="large"
-          initialValues={{ role: UserRole.TEACHER }}
+          initialValues={{ role: UserRole.ADMIN }}
         >
           <Form.Item
             name="role"
