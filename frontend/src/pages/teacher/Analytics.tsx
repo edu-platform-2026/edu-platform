@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Select, Space, Spin } from 'antd';
-import ReactECharts from 'echarts-for-react';
+import { Card, Row, Col, Statistic, Select, Space, Spin, Table, Progress, Tag, Typography } from 'antd';
+import { TeamOutlined, BookOutlined, FileTextOutlined } from '@ant-design/icons';
 import { analyticsService } from '../../services/analyticsService';
 import PageHeader from '../../components/common/PageHeader';
+
+const { Text } = Typography;
 
 const TeacherAnalytics: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -51,165 +53,109 @@ const TeacherAnalytics: React.FC = () => {
     }
   };
 
-  const trendOption = {
-    tooltip: {
-      trigger: 'axis' as const,
-    },
-    xAxis: {
-      type: 'category' as const,
-      data: studentTrend.map((d) => d.date),
-    },
-    yAxis: {
-      type: 'value' as const,
-      name: '学生数',
-    },
-    series: [
-      {
-        name: '学生数',
-        type: 'line',
-        data: studentTrend.map((d) => d.count),
-        smooth: true,
-        areaStyle: {
-          color: {
-            type: 'linear' as const,
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(22, 119, 255, 0.3)' },
-              { offset: 1, color: 'rgba(22, 119, 255, 0.05)' },
-            ],
-          },
-        },
-        itemStyle: {
-          color: '#1677ff',
-        },
-      },
-    ],
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true,
-    },
-  };
+  const totalStudents = courseDistribution.reduce((sum, d) => sum + d.value, 0);
+  const latestStudents = studentTrend.length > 0 ? studentTrend[studentTrend.length - 1].count : 175;
 
-  const pieOption = {
-    tooltip: {
-      trigger: 'item' as const,
-      formatter: '{a} <br/>{b}: {c} ({d}%)',
+  /* ---- 学生人数趋势 Table ---- */
+  const trendColumns = [
+    { title: '月份', dataIndex: 'date', key: 'date' },
+    {
+      title: '学生数',
+      dataIndex: 'count',
+      key: 'count',
+      render: (count: number) => <span style={{ fontWeight: 600, color: '#1677ff' }}>{count}</span>,
     },
-    legend: {
-      orient: 'vertical' as const,
-      left: 'left' as const,
-    },
-    series: [
-      {
-        name: '课程分布',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: {
-          borderRadius: 10,
-          borderColor: '#fff',
-          borderWidth: 2,
-        },
-        label: {
-          show: false,
-          position: 'center' as const,
-        },
-        emphasis: {
-          label: {
-            show: true,
-            fontSize: 16,
-            fontWeight: 'bold' as const,
-          },
-        },
-        labelLine: {
-          show: false,
-        },
-        data: courseDistribution.map((d) => ({
-          name: d.name,
-          value: d.value,
-        })),
-      },
-    ],
-  };
+  ];
 
-  const assignmentOption = {
-    tooltip: {
-      trigger: 'axis' as const,
+  /* ---- 课程学生分布 Table ---- */
+  const courseColumns = [
+    { title: '课程', dataIndex: 'name', key: 'name' },
+    {
+      title: '学生数',
+      dataIndex: 'value',
+      key: 'value',
+      render: (value: number) => <span style={{ fontWeight: 600 }}>{value}</span>,
     },
-    legend: {
-      data: ['布置数', '提交数', '批改数'],
+    {
+      title: '占比',
+      dataIndex: 'value',
+      key: 'percent',
+      render: (value: number) => (
+        <Progress
+          percent={Math.round((value / totalStudents) * 100)}
+          size="small"
+          strokeColor="#1677ff"
+        />
+      ),
     },
-    xAxis: {
-      type: 'category' as const,
-      data: ['1月', '2月', '3月', '4月', '5月', '6月'],
-    },
-    yAxis: {
-      type: 'value' as const,
-    },
-    series: [
-      {
-        name: '布置数',
-        type: 'bar',
-        data: [5, 8, 6, 9, 7, 10],
-        itemStyle: { color: '#1677ff' },
-      },
-      {
-        name: '提交数',
-        type: 'bar',
-        data: [4, 7, 5, 8, 6, 9],
-        itemStyle: { color: '#52c41a' },
-      },
-      {
-        name: '批改数',
-        type: 'bar',
-        data: [3, 6, 4, 7, 5, 8],
-        itemStyle: { color: '#faad14' },
-      },
-    ],
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true,
-    },
-  };
+  ];
 
-  const scoreOption = {
-    tooltip: {
-      trigger: 'axis' as const,
+  /* ---- 作业统计 Table ---- */
+  const assignmentData = [
+    { key: 1, month: '1月', assigned: 5, submitted: 4, graded: 3 },
+    { key: 2, month: '2月', assigned: 8, submitted: 7, graded: 6 },
+    { key: 3, month: '3月', assigned: 6, submitted: 5, graded: 4 },
+    { key: 4, month: '4月', assigned: 9, submitted: 8, graded: 7 },
+    { key: 5, month: '5月', assigned: 7, submitted: 6, graded: 5 },
+    { key: 6, month: '6月', assigned: 10, submitted: 9, graded: 8 },
+  ];
+
+  const assignmentColumns = [
+    { title: '月份', dataIndex: 'month', key: 'month' },
+    { title: '布置数', dataIndex: 'assigned', key: 'assigned' },
+    { title: '提交数', dataIndex: 'submitted', key: 'submitted' },
+    { title: '批改数', dataIndex: 'graded', key: 'graded' },
+    {
+      title: '提交率',
+      key: 'submitRate',
+      render: (_: unknown, record: any) => (
+        <Progress
+          percent={Math.round((record.submitted / record.assigned) * 100)}
+          size="small"
+          strokeColor="#52c41a"
+          format={(percent) => `${percent}%`}
+        />
+      ),
     },
-    radar: {
-      indicator: [
-        { name: '高等数学', max: 100 },
-        { name: '英语写作', max: 100 },
-        { name: '物理实验', max: 100 },
-        { name: '计算机基础', max: 100 },
-        { name: '化学基础', max: 100 },
-      ],
+  ];
+
+  /* ---- 课程成绩 Table ---- */
+  const scoreData = [
+    { key: 1, course: '高等数学', avgScore: 82, maxScore: 98, minScore: 55, passRate: 92 },
+    { key: 2, course: '英语写作', avgScore: 75, maxScore: 95, minScore: 48, passRate: 85 },
+    { key: 3, course: '物理实验', avgScore: 88, maxScore: 100, minScore: 62, passRate: 96 },
+    { key: 4, course: '计算机基础', avgScore: 90, maxScore: 100, minScore: 70, passRate: 98 },
+    { key: 5, course: '化学基础', avgScore: 78, maxScore: 96, minScore: 50, passRate: 88 },
+  ];
+
+  const scoreColumns = [
+    { title: '课程', dataIndex: 'course', key: 'course' },
+    {
+      title: '平均分',
+      dataIndex: 'avgScore',
+      key: 'avgScore',
+      render: (score: number) => (
+        <span style={{ color: score >= 85 ? '#52c41a' : score >= 80 ? '#1677ff' : '#faad14', fontWeight: 600 }}>
+          {score}分
+        </span>
+      ),
     },
-    series: [
-      {
-        type: 'radar',
-        data: [
-          {
-            value: [82, 75, 88, 90, 78],
-            name: '平均分',
-            areaStyle: {
-              color: 'rgba(22, 119, 255, 0.2)',
-            },
-            lineStyle: {
-              color: '#1677ff',
-            },
-          },
-        ],
-      },
-    ],
-  };
+    { title: '最高分', dataIndex: 'maxScore', key: 'maxScore' },
+    { title: '最低分', dataIndex: 'minScore', key: 'minScore' },
+    {
+      title: '及格率',
+      dataIndex: 'passRate',
+      key: 'passRate',
+      render: (rate: number) => (
+        <Progress
+          percent={rate}
+          size="small"
+          strokeColor={rate >= 95 ? '#52c41a' : rate >= 90 ? '#1677ff' : '#faad14'}
+          format={(percent) => `${percent}%`}
+        />
+      ),
+    },
+  ];
 
   if (loading) {
     return (
@@ -223,15 +169,49 @@ const TeacherAnalytics: React.FC = () => {
     <div>
       <PageHeader title="教学数据分析" subtitle="查看教学相关统计数据" />
 
+      {/* 总览统计 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={8}>
+          <Card bordered={false} style={{ borderRadius: 8 }}>
+            <Statistic
+              title="当前学生数"
+              value={latestStudents}
+              prefix={<TeamOutlined style={{ color: '#1677ff' }} />}
+              valueStyle={{ color: '#1677ff' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card bordered={false} style={{ borderRadius: 8 }}>
+            <Statistic
+              title="课程总人次"
+              value={totalStudents}
+              prefix={<BookOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card bordered={false} style={{ borderRadius: 8 }}>
+            <Statistic
+              title="课程数"
+              value={courseDistribution.length}
+              prefix={<FileTextOutlined style={{ color: '#faad14' }} />}
+              valueStyle={{ color: '#faad14' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card title="学生人数趋势" bordered={false}>
-            <ReactECharts option={trendOption} style={{ height: 300 }} />
+            <Table dataSource={studentTrend} columns={trendColumns} pagination={false} size="middle" />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
           <Card title="课程学生分布" bordered={false}>
-            <ReactECharts option={pieOption} style={{ height: 300 }} />
+            <Table dataSource={courseDistribution} columns={courseColumns} pagination={false} size="middle" />
           </Card>
         </Col>
       </Row>
@@ -239,12 +219,12 @@ const TeacherAnalytics: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={12}>
           <Card title="作业统计" bordered={false}>
-            <ReactECharts option={assignmentOption} style={{ height: 300 }} />
+            <Table dataSource={assignmentData} columns={assignmentColumns} pagination={false} size="middle" />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="课程成绩雷达图" bordered={false}>
-            <ReactECharts option={scoreOption} style={{ height: 300 }} />
+          <Card title="课程成绩统计" bordered={false}>
+            <Table dataSource={scoreData} columns={scoreColumns} pagination={false} size="middle" />
           </Card>
         </Col>
       </Row>
