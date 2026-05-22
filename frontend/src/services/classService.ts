@@ -17,7 +17,7 @@ export const classService = {
   },
 
   updateClass: (id: string, data: Partial<{ name: string; grade: string; description: string; teacherId: string }>) => {
-    return api.patch<any, ApiResponse<ClassInfo>>(`/classes/${id}`, data);
+    return api.put<any, ApiResponse<ClassInfo>>(`/classes/${id}`, data);
   },
 
   deleteClass: (id: string) => {
