@@ -76,8 +76,7 @@ const AdminCourses: React.FC = () => {
       message.success('删除成功');
       fetchCourses();
     } catch {
-      message.success('删除成功');
-      setCourses((prev) => prev.filter((c) => c.id !== id));
+      message.error('删除失败，请重试');
     }
   };
 
@@ -104,8 +103,9 @@ const AdminCourses: React.FC = () => {
       }
       setModalVisible(false);
       fetchCourses();
-    } catch {
-      // validation failed
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      message.error(err?.message || '操作失败，请重试');
     }
   };
 
