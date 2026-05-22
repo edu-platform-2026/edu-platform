@@ -25,7 +25,6 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 /**
  * Application root module
- * Imports all sub-modules and configures global guards
  */
 @Module({
   imports: [
@@ -34,7 +33,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
       rootPath: '/opt/edu-platform/frontend/dist',
       exclude: ['/api/(.*)', '/docs', '/docs/(.*)'],
     }),
-    // Global config module - loads environment variables
+    // Global config module
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -62,7 +61,6 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     PaymentsModule,
   ],
   providers: [
-    // Global JWT authentication guard
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
