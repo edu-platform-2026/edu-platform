@@ -58,7 +58,7 @@ export class AttendanceService {
       where.teacherId = filters.teacherId;
     }
 
-    if (filters?.status != null && filters?.status !== '' && !isNaN(Number(filters.status))) {
+    if (filters?.status != null && !isNaN(Number(filters.status))) {
       where.status = Number(filters.status);
     }
 
