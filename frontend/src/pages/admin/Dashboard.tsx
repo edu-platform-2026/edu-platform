@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Typography, Spin, Empty, message } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, Typography, Spin, message } from 'antd';
 import {
   UserOutlined, BookOutlined, TeamOutlined, FileTextOutlined,
-  ApartmentOutlined,
+  ApartmentOutlined, CheckCircleOutlined, ClockCircleOutlined,
 } from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import { analyticsService, DashboardStats } from '../../services/analyticsService';
+import { analyticsService } from '../../services/analyticsService';
 import { courseService } from '../../services/courseService';
 import { Course } from '../../types/course';
 
@@ -17,9 +17,7 @@ const courseColumns = [
   { title: '授课教师', dataIndex: 'teacherName', key: 'teacherName', render: (v: string) => v || '-' },
   { title: '学生人数', dataIndex: 'currentStudents', key: 'currentStudents', render: (v: number) => v ?? '-' },
   {
-    title: '状态',
-    dataIndex: 'status',
-    key: 'status',
+    title: '状态', dataIndex: 'status', key: 'status',
     render: (status: string) => {
       const map: Record<string, { color: string; text: string }> = {
         ACTIVE: { color: 'green', text: '进行中' },
@@ -33,15 +31,22 @@ const courseColumns = [
   },
 ];
 
+interface OverviewData {
+  users?: { total?: number; active?: number; roleDistribution?: any[] };
+  classes?: { total?: number };
+  courses?: { total?: number };
+  assignments?: { total?: number };
+  resources?: { total?: number };
+  feedbacks?: { total?: number; pending?: number };
+}
+
 const AdminDashboard: React.FC = () => {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [overview, setOverview] = useState<OverviewData | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -52,23 +57,22 @@ const AdminDashboard: React.FC = () => {
       ]);
 
       if (statsRes.status === 'fulfilled') {
-        const data = statsRes.value?.data;
+        const res = statsRes.value as any;
+        const data = res?.data;
         if (data) {
-          setStats(data);
+          setOverview(data);
         }
       } else {
-        message.error('获取仪表盘统计数据失败');
+        console.error('获取仪表盘数据失败:', statsRes.reason);
       }
 
       if (coursesRes.status === 'fulfilled') {
-        const data = coursesRes.value?.data;
+        const res = coursesRes.value as any;
+        const data = res?.data;
         if (data) {
-          // PaginatedResponse: { items, total, ... }
           const items = Array.isArray(data) ? data : data.items || [];
           setCourses(items);
         }
-      } else {
-        message.error('获取课程列表失败');
       }
     } catch {
       message.error('加载数据失败');
@@ -76,6 +80,22 @@ const AdminDashboard: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Extract stats from overview data
+  const totalUsers = overview?.users?.total || 0;
+  const activeUsers = overview?.users?.active || 0;
+  const totalClasses = overview?.classes?.total || 0;
+  const totalCourses = overview?.courses?.total || 0;
+  const totalAssignments = overview?.assignments?.total || 0;
+  const totalResources = overview?.resources?.total || 0;
+  const totalFeedbacks = overview?.feedbacks?.total || 0;
+  const pendingFeedbacks = overview?.feedbacks?.pending || 0;
+
+  // Get teacher and student counts from role distribution
+  const roleDistribution = overview?.users?.roleDistribution || [];
+  const teacherCount = roleDistribution.find((r: any) => r.roleCode === 'TEACHER')?.count || 0;
+  const studentCount = roleDistribution.find((r: any) => r.roleCode === 'STUDENT')?.count || 0;
+  const parentCount = roleDistribution.find((r: any) => r.roleCode === 'PARENT')?.count || 0;
 
   if (loading) {
     return (
@@ -87,115 +107,72 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div>
-      <PageHeader
-        title="管理后台"
-        subtitle={`欢迎回来，${user?.name || user?.realName || '管理员'}`}
-      />
+      <PageHeader title="管理后台" subtitle={`欢迎回来，${user?.name || user?.realName || '管理员'}`} />
 
-      {/* 统计卡片 */}
+      {/* 主要统计卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card hoverable>
-            <Statistic
-              title="学员总数"
-              value={stats?.totalStudents ?? 0}
-              prefix={<UserOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-            {stats?.recentActivity?.newStudents != null && (
-              <Text type="success">新增 {stats.recentActivity.newStudents} 名学员</Text>
-            )}
+        <Col xs={12} sm={8} md={6}>
+          <Card bordered={false}>
+            <Statistic title="用户总数" value={totalUsers} prefix={<TeamOutlined style={{ color: '#1677ff' }} />} />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card hoverable>
-            <Statistic
-              title="教师总数"
-              value={stats?.totalTeachers ?? 0}
-              prefix={<TeamOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-            />
+        <Col xs={12} sm={8} md={6}>
+          <Card bordered={false}>
+            <Statistic title="学生人数" value={studentCount} prefix={<UserOutlined style={{ color: '#52c41a' }} />} />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card hoverable>
-            <Statistic
-              title="课程总数"
-              value={stats?.totalCourses ?? 0}
-              prefix={<BookOutlined />}
-              valueStyle={{ color: '#722ed1' }}
-            />
-            {stats?.activeCourses != null && (
-              <Text type="secondary">{stats.activeCourses} 门进行中</Text>
-            )}
+        <Col xs={12} sm={8} md={6}>
+          <Card bordered={false}>
+            <Statistic title="教师人数" value={teacherCount} prefix={<UserOutlined style={{ color: '#722ed1' }} />} />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card hoverable>
-            <Statistic
-              title="班级总数"
-              value={stats?.totalClasses ?? 0}
-              prefix={<ApartmentOutlined />}
-              valueStyle={{ color: '#faad14' }}
-            />
-            {stats?.totalAssignments != null && (
-              <Text type="secondary">作业 {stats.totalAssignments} 份</Text>
-            )}
+        <Col xs={12} sm={8} md={6}>
+          <Card bordered={false}>
+            <Statistic title="班级数量" value={totalClasses} prefix={<ApartmentOutlined style={{ color: '#fa8c16' }} />} />
           </Card>
         </Col>
       </Row>
 
-      {/* 最近活动统计 */}
-      {stats?.recentActivity && (
-        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-          <Col xs={24} sm={8}>
-            <Card size="small">
-              <Statistic
-                title="新增学员"
-                value={stats.recentActivity.newStudents ?? 0}
-                prefix={<UserOutlined style={{ color: '#1890ff' }} />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Card size="small">
-              <Statistic
-                title="新增作业"
-                value={stats.recentActivity.newAssignments ?? 0}
-                prefix={<FileTextOutlined style={{ color: '#722ed1' }} />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Card size="small">
-              <Statistic
-                title="新增提交"
-                value={stats.recentActivity.newSubmissions ?? 0}
-                prefix={<FileTextOutlined style={{ color: '#52c41a' }} />}
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
+      {/* 次要统计卡片 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={12} sm={8} md={6}>
+          <Card bordered={false}>
+            <Statistic title="课程数量" value={totalCourses} prefix={<BookOutlined style={{ color: '#13c2c2' }} />} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={8} md={6}>
+          <Card bordered={false}>
+            <Statistic title="作业数量" value={totalAssignments} prefix={<FileTextOutlined style={{ color: '#eb2f96' }} />} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={8} md={6}>
+          <Card bordered={false}>
+            <Statistic title="教学资源" value={totalResources} prefix={<FileTextOutlined style={{ color: '#1890ff' }} />} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={8} md={6}>
+          <Card bordered={false}>
+            <Statistic
+              title="待处理反馈"
+              value={pendingFeedbacks}
+              prefix={<ClockCircleOutlined style={{ color: '#faad14' }} />}
+              suffix={<span style={{ fontSize: 14, color: '#999' }}>/ {totalFeedbacks}</span>}
+            />
+          </Card>
+        </Col>
+      </Row>
 
       {/* 课程列表 */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24}>
-          <Card title="近期课程" size="small">
-            {courses.length > 0 ? (
-              <Table
-                columns={courseColumns}
-                dataSource={courses}
-                rowKey="id"
-                pagination={false}
-                size="small"
-              />
-            ) : (
-              <Empty description="暂无课程数据" />
-            )}
-          </Card>
-        </Col>
-      </Row>
+      <Card title="近期课程" bordered={false}>
+        <Table
+          dataSource={courses}
+          columns={courseColumns}
+          rowKey="id"
+          pagination={false}
+          size="middle"
+          locale={{ emptyText: '暂无课程数据' }}
+        />
+      </Card>
     </div>
   );
 };
