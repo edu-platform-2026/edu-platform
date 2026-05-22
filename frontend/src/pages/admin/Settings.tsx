@@ -25,22 +25,17 @@ const AdminSettings: React.FC = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/institutions/settings');
+      const response = await api.get('/institutions/current');
       const data = response.data;
-      setSettings(data);
-      form.setFieldsValue(data);
-    } catch {
-      const mockData: InstitutionSettings = {
-        id: '1',
-        name: '阳光教育培训中心',
-        address: '北京市朝阳区教育路100号',
-        phone: '010-12345678',
-        email: 'contact@sunshine-edu.com',
-        description: '阳光教育培训中心成立于2010年，是一家专注于中小学课外辅导的教育机构。我们致力于为学生提供优质的教育资源和个性化的学习方案。',
-        workingHours: '周一至周五 8:00-20:00，周六日 9:00-18:00',
+      // 字段映射：后端 businessHours -> 前端 workingHours
+      const mapped = {
+        ...data,
+        workingHours: data.businessHours || data.workingHours || '',
       };
-      setSettings(mockData);
-      form.setFieldsValue(mockData);
+      setSettings(mapped);
+      form.setFieldsValue(mapped);
+    } catch {
+      message.error('加载机构信息失败');
     } finally {
       setLoading(false);
     }
@@ -49,12 +44,22 @@ const AdminSettings: React.FC = () => {
   const handleSubmit = async (values: any) => {
     setSaving(true);
     try {
-      await api.patch('/institutions/settings', values);
+      // 字段映射：前端 workingHours -> 后端 businessHours
+      const submitData = {
+        ...values,
+        businessHours: values.workingHours,
+      };
+      const response = await api.put('/institutions/current', submitData);
+      const data = response.data;
+      const mapped = {
+        ...data,
+        workingHours: data.businessHours || data.workingHours || '',
+      };
+      setSettings(mapped);
+      form.setFieldsValue(mapped);
       message.success('保存成功');
-      setSettings({ ...settings, ...values } as InstitutionSettings);
     } catch {
-      message.success('保存成功');
-      setSettings({ ...settings, ...values } as InstitutionSettings);
+      message.error('保存失败，请重试');
     } finally {
       setSaving(false);
     }
