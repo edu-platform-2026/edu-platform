@@ -36,12 +36,18 @@ export class CoursesService {
       status?: number;
     },
   ) {
-    const { page = 1, pageSize = 10, sortBy = 'createdAt', sortOrder = 'desc' } = paginationDto || {};
+    const page = Number(paginationDto?.page) || 1;
+    const pageSize = Number(paginationDto?.pageSize) || 10;
+    const sortBy = paginationDto?.sortBy || 'createdAt';
+    const sortOrder = paginationDto?.sortOrder || 'desc';
 
     const where: any = { institutionId };
 
-    if (filters?.status != null) {
-      where.status = Number(filters.status);
+    if (filters?.status !== undefined && filters?.status !== null) {
+      const statusNum = Number(filters.status);
+      if (!isNaN(statusNum)) {
+        where.status = statusNum;
+      }
     }
 
     if (filters?.classId) {
