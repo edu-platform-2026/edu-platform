@@ -10,11 +10,17 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0',
     port: 5173,
     proxy: {
-      '/api': {
+      '/api/v1': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+      },
+      '/ai-api': {
+        target: 'https://token-plan-cn.xiaomimimo.com/v1',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/ai-api/, ''),
       },
     },
   },
@@ -27,7 +33,6 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           antd: ['antd', '@ant-design/icons'],
-          echarts: ['echarts', 'echarts-for-react'],
         },
       },
     },
