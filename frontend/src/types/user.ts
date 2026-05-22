@@ -8,14 +8,16 @@ export enum UserRole {
 export interface User {
   id: string;
   username: string;
-  email: string;
+  email?: string;
   name: string;
+  realName?: string;
   role: UserRole;
+  roles?: string[];
   phone?: string;
   avatar?: string;
   institutionId?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LoginRequest {
