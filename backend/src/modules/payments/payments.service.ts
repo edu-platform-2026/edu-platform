@@ -50,11 +50,11 @@ export class PaymentsService {
 
     const where: any = { institutionId };
 
-    if (filters?.status != null && filters?.status !== '' && !isNaN(Number(filters.status))) {
+    if (filters?.status != null && !isNaN(Number(filters.status))) {
       where.status = Number(filters.status);
     }
 
-    if (filters?.type != null && filters?.type !== '' && !isNaN(Number(filters.type))) {
+    if (filters?.type != null && !isNaN(Number(filters.type))) {
       where.type = Number(filters.type);
     }
 
