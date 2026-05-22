@@ -2,8 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -39,6 +38,9 @@ model Institution {
   resources     Resource[]
   notifications Notification[]
   feedbacks     Feedback[]
+  messages      Message[]
+  operationLogs OperationLog[]
+  payments      Payment[]
 
   @@map("institutions")
 }
@@ -49,7 +51,7 @@ model Institution {
 model User {
   id            String    @id @default(uuid()) @db.Uuid
   institutionId String    @map("institution_id") @db.Uuid
-  username      String    @db.VarChar(100)
+  username      String    @unique @db.VarChar(100)
   passwordHash  String    @map("password_hash") @db.VarChar(255)
   realName      String    @map("real_name") @db.VarChar(50)
   phone         String?   @unique @db.VarChar(20)
@@ -75,17 +77,31 @@ model User {
   attendances         Attendance[] @relation("TeacherAttendances")
   
   // Student relations
-  studentClasses      ClassStudent[] @relation("StudentClasses")
-  submissions         Submission[] @relation("StudentSubmissions")
+  studentClasses    ClassStudent[] @relation("StudentClasses")
+  teacherFeedbacks Feedback[] @relation("TeacherFeedbacks")
+  submissions        Submission[] @relation("StudentSubmissions")
   
   // Parent relations
   parentClasses       ClassStudent[] @relation("ParentClasses")
   feedbacks           Feedback[]     @relation("ParentFeedbacks")
   repliedFeedbacks    Feedback[]     @relation("RepliedFeedbacks")
-  teacherFeedbacks   Feedback[]     @relation("TeacherFeedbacks")
   
   // Notification reads
   notificationReads   NotificationRead[]
+
+  // Messages
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  // Operation logs
+  operationLogs    OperationLog[] @relation("OperationLogs")
+
+  // Payments
+  studentPayments  Payment[] @relation("StudentPayments")
+
+  // Invitations
+  inviterInvitations Invitation[] @relation("Inviter")
+  inviteeInvitations Invitation[] @relation("Invitee")
 
   @@index([institutionId])
   @@index([phone])
@@ -197,7 +213,7 @@ model ClassStudent {
 
   // Relations
   class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student User  @relation("StudentClasses", fields: [studentId], references: [id], onDelete: Cascade)
+  student User @relation("StudentClasses", fields: [studentId], references: [id], onDelete: Cascade)
   parent  User? @relation("ParentClasses", fields: [parentId], references: [id])
 
   @@id([classId, studentId])
@@ -435,7 +451,7 @@ model Feedback {
   // Relations
   institution Institution @relation(fields: [institutionId], references: [id])
   parent      User        @relation("ParentFeedbacks", fields: [parentId], references: [id])
-  teacher     User?       @relation("TeacherFeedbacks", fields: [teacherId], references: [id])
+  teacher User? @relation("TeacherFeedbacks", fields: [teacherId], references: [id])
   replier     User?       @relation("RepliedFeedbacks", fields: [repliedBy], references: [id])
 
   @@index([institutionId])
@@ -457,4 +473,94 @@ model LearningProgress {
 
   @@unique([studentId, courseId])
   @@map("learning_progress")
+}
+
+// ========================================
+// 站内消息表
+// ========================================
+model Message {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  senderId      String    @map("sender_id") @db.Uuid
+  receiverId    String    @map("receiver_id") @db.Uuid
+  content       String    @db.Text
+  type          Int       @default(1) @db.SmallInt
+  isRead        Boolean   @default(false) @map("is_read")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  sender      User        @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User        @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  @@index([institutionId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@map("messages")
+}
+
+// ========================================
+// 操作日志表
+// ========================================
+model OperationLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  action        String    @db.VarChar(100)
+  module        String    @db.VarChar(100)
+  targetId      String?   @map("target_id") @db.VarChar(100)
+  detail        String?   @db.Text
+  ipAddress     String?   @map("ip_address") @db.VarChar(50)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  user        User        @relation("OperationLogs", fields: [userId], references: [id])
+
+  @@index([institutionId])
+  @@index([userId])
+  @@map("operation_logs")
+}
+
+// ========================================
+// 缴费记录表
+// ========================================
+model Payment {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  amount        Decimal   @db.Decimal(10, 2)
+  type          Int       @default(1) @db.SmallInt
+  status        Int       @default(1) @db.SmallInt
+  description   String?   @db.VarChar(500)
+  paymentMethod String?   @map("payment_method") @db.VarChar(50)
+  paidAt        DateTime? @map("paid_at") @db.Timestamp()
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  student     User        @relation("StudentPayments", fields: [studentId], references: [id])
+
+  @@index([institutionId])
+  @@index([studentId])
+  @@map("payments")
+}
+
+// ========================================
+// 邀请记录表
+// ========================================
+model Invitation {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  inviterId     String    @map("inviter_id") @db.Uuid
+  code          String    @unique @db.VarChar(20)
+  role          String    @db.VarChar(20)    // 邀请的角色: STUDENT, PARENT, TEACHER
+  inviteeId     String?   @map("invitee_id") @db.Uuid  // 被邀请人注册后填入
+  status        Int       @default(0) @db.SmallInt  // 0=未使用, 1=已使用
+  usedAt        DateTime? @map("used_at") @db.Timestamp
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp
+
+  inviter       User      @relation("Inviter", fields: [inviterId], references: [id])
+  invitee       User?     @relation("Invitee", fields: [inviteeId], references: [id])
+
+  @@index([code])
+  @@index([inviterId])
+  @@map("invitations")
 }
