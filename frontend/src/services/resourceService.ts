@@ -18,10 +18,22 @@ export const resourceService = {
   },
 
   updateResource: (id: string, data: Partial<Resource>) => {
-    return api.patch<any, ApiResponse<Resource>>(`/resources/${id}`, data);
+    return api.put<any, ApiResponse<Resource>>(`/resources/${id}`, data);
   },
 
   deleteResource: (id: string) => {
     return api.delete<any, ApiResponse<void>>(`/resources/${id}`);
+  },
+
+  downloadResource: (id: string) => {
+    return api.get<any, ApiResponse<Resource>>(`/resources/${id}/download`);
+  },
+
+  searchResources: (keyword: string) => {
+    return api.get<any, ApiResponse<Resource[]>>('/resources/search', { params: { keyword } });
+  },
+
+  getCategories: () => {
+    return api.get<any, ApiResponse<string[]>>('/resources/categories');
   },
 };
