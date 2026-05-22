@@ -9,7 +9,7 @@ export const appConfig = registerAs('app', () => ({
   nodeEnv: process.env.NODE_ENV || 'development',
 
   /** 服务监听端口 */
-  port: parseInt(process.env.PORT || '3000', 10) || 3000,
+  port: parseInt(process.env.PORT || '3000', 10),
 
   /** API 路由前缀 */
   apiPrefix: process.env.API_PREFIX || 'api/v1',
@@ -18,8 +18,8 @@ export const appConfig = registerAs('app', () => ({
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
   /** 接口限流 - 时间窗口（秒） */
-  throttleTtl: parseInt(process.env.THROTTLE_TTL || '60', 10) || 60,
+  throttleTtl: parseInt(process.env.THROTTLE_TTL || '60', 10),
 
   /** 接口限流 - 时间窗口内最大请求数 */
-  throttleLimit: parseInt(process.env.THROTTLE_LIMIT || '10', 10) || 10,
+  throttleLimit: parseInt(process.env.THROTTLE_LIMIT || '10', 10),
 }));
