@@ -23,21 +23,29 @@ import { MessagesModule } from './modules/messages/messages.module';
 import { OperationLogsModule } from './modules/operation-logs/operation-logs.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-
+/**
+ * Application root module
+ * Imports all sub-modules and configures global guards
+ */
 @Module({
   imports: [
+    // Static file serving - frontend build output
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), '..', 'frontend', 'dist'),
       exclude: ['/api/(.*)', '/docs', '/docs/(.*)'],
     }),
+    // Global config module - loads environment variables
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
       load: [appConfig, databaseConfig, jwtConfig],
       cache: true,
     }),
+    // Scheduled tasks module
     ScheduleModule.forRoot(),
+    // Database module
     PrismaModule,
+    // Business modules
     AuthModule,
     UsersModule,
     InstitutionsModule,
@@ -54,6 +62,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     PaymentsModule,
   ],
   providers: [
+    // Global JWT authentication guard
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
