@@ -1,6 +1,5 @@
 import { Controller, Get, Post, Body, Query, Param, UseGuards, Request, NotFoundException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -10,7 +9,6 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('invitations')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard)
 @Controller('invitations')
 export class InvitationsController {
   constructor(
@@ -19,16 +17,16 @@ export class InvitationsController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: '创建邀请码' })
+  @ApiOperation({ summary: 'Create invitation code' })
   async create(@Request() req, @Body() body: { role: string }) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!user) throw new NotFoundException('用户不存在');
+    if (!user) throw new NotFoundException('User not found');
     const invitation = await this.invitationsService.create(req.user.id, user.institutionId, body.role);
     return { code: 200, message: 'success', data: invitation };
   }
 
   @Get('my')
-  @ApiOperation({ summary: '获取我的邀请列表' })
+  @ApiOperation({ summary: 'Get my invitations' })
   async getMy(@Request() req) {
     const invitations = await this.invitationsService.getMyInvitations(req.user.id);
     return { code: 200, message: 'success', data: invitations };
@@ -36,31 +34,57 @@ export class InvitationsController {
 
   @Public()
   @Get('check/:code')
-  @ApiOperation({ summary: '检查邀请码' })
+  @ApiOperation({ summary: 'Check invitation code' })
   async checkCode(@Param('code') code: string) {
     const invitation = await this.invitationsService.getByCode(code);
     return { code: 200, message: 'success', data: invitation };
   }
 
   @Get('statistics')
-  @ApiOperation({ summary: '邀请统计（管理员）' })
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Get invitation statistics' })
   async statistics(@Request() req) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!user) throw new NotFoundException('用户不存在');
-    const stats = await this.invitationsService.getStatistics(user.institutionId);
-    return { code: 200, message: 'success', data: stats };
+    if (!user) throw new NotFoundException('User not found');
+
+    const userRoles: string[] = req.user.roles || [];
+
+    if (userRoles.includes('ADMIN')) {
+      // Admin sees all institution invitations
+      const stats = await this.invitationsService.getStatistics(user.institutionId);
+      return { code: 200, message: 'success', data: stats };
+    } else {
+      // Teacher/other sees own invitations stats
+      const myInvitations = await this.invitationsService.getMyInvitations(req.user.id);
+      const total = myInvitations.length;
+      const used = myInvitations.filter((i: any) => i.status === 1).length;
+      return {
+        code: 200, message: 'success',
+        data: { total, used, unused: total - used },
+      };
+    }
   }
 
   @Get()
-  @ApiOperation({ summary: '邀请列表（管理员）' })
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Get invitation list' })
   async getAll(@Request() req, @Query('page') page = 1, @Query('pageSize') pageSize = 20) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!user) throw new NotFoundException('用户不存在');
-    const result = await this.invitationsService.getAll(user.institutionId, +page, +pageSize);
-    return { code: 200, message: 'success', data: result };
+    if (!user) throw new NotFoundException('User not found');
+
+    const userRoles: string[] = req.user.roles || [];
+
+    if (userRoles.includes('ADMIN')) {
+      // Admin sees all institution invitations
+      const result = await this.invitationsService.getAll(user.institutionId, +page, +pageSize);
+      return { code: 200, message: 'success', data: result };
+    } else {
+      // Teacher/other sees own invitations
+      const myInvitations = await this.invitationsService.getMyInvitations(req.user.id);
+      const start = (+page - 1) * +pageSize;
+      const items = myInvitations.slice(start, start + +pageSize);
+      return {
+        code: 200, message: 'success',
+        data: { items, meta: { total: myInvitations.length, page: +page, pageSize: +pageSize } },
+      };
+    }
   }
 }
