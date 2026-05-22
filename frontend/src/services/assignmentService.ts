@@ -16,12 +16,16 @@ export const assignmentService = {
     return api.get<any, ApiResponse<Assignment>>(`/assignments/${id}`);
   },
 
+  getAssignmentStatistics: (id: string) => {
+    return api.get<any, ApiResponse<any>>(`/assignments/${id}/statistics`);
+  },
+
   createAssignment: (data: CreateAssignmentRequest) => {
     return api.post<any, ApiResponse<Assignment>>('/assignments', data);
   },
 
   updateAssignment: (id: string, data: Partial<CreateAssignmentRequest>) => {
-    return api.patch<any, ApiResponse<Assignment>>(`/assignments/${id}`, data);
+    return api.put<any, ApiResponse<Assignment>>(`/assignments/${id}`, data);
   },
 
   deleteAssignment: (id: string) => {
@@ -29,18 +33,18 @@ export const assignmentService = {
   },
 
   publishAssignment: (id: string) => {
-    return api.patch<any, ApiResponse<Assignment>>(`/assignments/${id}/publish`);
+    return api.post<any, ApiResponse<Assignment>>(`/assignments/${id}/publish`);
   },
 
   getSubmissions: (assignmentId: string, params?: QueryParams) => {
     return api.get<any, PaginatedResponse<AssignmentSubmission>>(
-      `/assignments/${assignmentId}/submissions`,
-      { params }
+      '/submissions',
+      { params: { ...params, assignmentId } }
     );
   },
 
   gradeSubmission: (submissionId: string, data: GradeSubmissionRequest) => {
-    return api.patch<any, ApiResponse<AssignmentSubmission>>(
+    return api.post<any, ApiResponse<AssignmentSubmission>>(
       `/submissions/${submissionId}/grade`,
       data
     );
@@ -48,8 +52,12 @@ export const assignmentService = {
 
   submitAssignment: (assignmentId: string, data: { content: string; attachments?: string[] }) => {
     return api.post<any, ApiResponse<AssignmentSubmission>>(
-      `/assignments/${assignmentId}/submit`,
+      `/submissions/assignments/${assignmentId}/submit`,
       data
     );
+  },
+
+  getMySubmissions: (params?: QueryParams) => {
+    return api.get<any, PaginatedResponse<AssignmentSubmission>>('/submissions/my', { params });
   },
 };
