@@ -79,8 +79,7 @@ const AdminUsers: React.FC = () => {
       message.success('删除成功');
       fetchUsers();
     } catch {
-      message.success('删除成功');
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      message.error('删除失败，请重试');
     }
   };
 
@@ -96,8 +95,9 @@ const AdminUsers: React.FC = () => {
       }
       setModalVisible(false);
       fetchUsers();
-    } catch {
-      // validation failed
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      message.error(err?.message || '操作失败，请重试');
     }
   };
 
