@@ -78,6 +78,14 @@ export class PermissionsGuard implements CanActivate {
       // 邀请模块
       Permission.INVITATION_CREATE,
       Permission.INVITATION_READ,
+      // 操作日志模块
+      Permission.OPERATION_LOG_READ,
+      // 支付模块
+      Permission.PAYMENT_CREATE,
+      Permission.PAYMENT_READ,
+      Permission.PAYMENT_UPDATE,
+      Permission.PAYMENT_DELETE,
+      Permission.PAYMENT_PAY,
     ],
     STUDENT: [
       // 作业模块
