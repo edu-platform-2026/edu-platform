@@ -42,7 +42,7 @@ export class ClassesService {
     // 构建查询条件
     const where: any = { institutionId };
 
-    if (filters?.status != null && filters?.status !== '' && !isNaN(Number(filters.status))) {
+    if (filters?.status != null) {
       where.status = Number(filters.status);
     }
 
