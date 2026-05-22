@@ -149,6 +149,22 @@ export enum Permission {
   INVITATION_READ = 'invitation:read',
   /** 删除邀请 */
   INVITATION_DELETE = 'invitation:delete',
+
+  // ==================== 操作日志模块权限 ====================
+  /** 查看操作日志 */
+  OPERATION_LOG_READ = 'operation_log:read',
+
+  // ==================== 支付模块权限 ====================
+  /** 创建支付 */
+  PAYMENT_CREATE = 'payment:create',
+  /** 查看支付 */
+  PAYMENT_READ = 'payment:read',
+  /** 更新支付 */
+  PAYMENT_UPDATE = 'payment:update',
+  /** 删除支付 */
+  PAYMENT_DELETE = 'payment:delete',
+  /** 支付操作 */
+  PAYMENT_PAY = 'payment:pay',
 }
 
 /**
@@ -239,5 +255,15 @@ export const PERMISSION_GROUPS: Record<string, Permission[]> = {
     Permission.INVITATION_CREATE,
     Permission.INVITATION_READ,
     Permission.INVITATION_DELETE,
+  ],
+  operation_log: [
+    Permission.OPERATION_LOG_READ,
+  ],
+  payment: [
+    Permission.PAYMENT_CREATE,
+    Permission.PAYMENT_READ,
+    Permission.PAYMENT_UPDATE,
+    Permission.PAYMENT_DELETE,
+    Permission.PAYMENT_PAY,
   ],
 };
