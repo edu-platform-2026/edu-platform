@@ -9,15 +9,11 @@ import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { ReplyFeedbackDto } from './dto/reply-feedback.dto';
 
 /**
- * 反馈服务
- * 处理反馈 CRUD、回复等业务逻辑
+ * 鍙嶉鏈嶅姟
+ * 澶勭悊鍙嶉 CRUD銆佸洖澶嶇瓑涓氬姟閫昏緫
  *
- * 反馈状态：
- * - 1: 待处理
- * - 2: 处理中
- * - 3: 已回复
- * - 4: 已关闭
- */
+ * 鍙嶉鐘舵€侊細
+ * - 1: 寰呭鐞? * - 2: 澶勭悊涓? * - 3: 宸插洖澶? * - 4: 宸插叧闂? */
 @Injectable()
 export class FeedbackService {
   private readonly logger = new Logger(FeedbackService.name);
@@ -25,7 +21,7 @@ export class FeedbackService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * 获取反馈列表（分页）
+   * 鑾峰彇鍙嶉鍒楄〃锛堝垎椤碉級
    */
   async findAll(
     institutionId: string,
@@ -45,7 +41,10 @@ export class FeedbackService {
     const where: any = { institutionId };
 
     if (filters?.category) where.category = filters.category;
-    if (filters?.status !== undefined && filters?.status !== null) where.status = Number(filters.status);
+    if (filters?.status !== undefined && filters?.status !== null) {
+      const statusNum = Number(filters.status);
+      if (!isNaN(statusNum)) where.status = statusNum;
+    }
     if (filters?.parentId) where.parentId = filters.parentId;
 
     if (filters?.keyword) {
@@ -88,7 +87,7 @@ export class FeedbackService {
   }
 
   /**
-   * 获取反馈详情
+   * 鑾峰彇鍙嶉璇︽儏
    */
   async findById(id: string) {
     const feedback = await this.prisma.feedback.findUnique({
@@ -120,14 +119,14 @@ export class FeedbackService {
     });
 
     if (!feedback) {
-      throw new NotFoundException(`反馈不存在: ${id}`);
+      throw new NotFoundException(`鍙嶉涓嶅瓨鍦? ${id}`);
     }
 
     return feedback;
   }
 
   /**
-   * 创建反馈
+   * 鍒涘缓鍙嶉
    */
   async create(institutionId: string, parentId: string, dto: CreateFeedbackDto) {
     const feedback = await this.prisma.feedback.create({
@@ -135,12 +134,11 @@ export class FeedbackService {
         institutionId,
         parentId,
         teacherId: dto.teacherId || null,
-        title: dto.title,
+        title: dto.title || null,
         content: dto.content,
-        category: dto.category || '其他',
+        category: dto.category || '鍏朵粬',
         attachments: dto.attachments || undefined,
-        status: 1, // 默认待处理
-      },
+        status: 1, // 榛樿寰呭鐞?      },
       include: {
         parent: {
           select: {
@@ -151,13 +149,12 @@ export class FeedbackService {
       },
     });
 
-    this.logger.log(`反馈创建成功: ${dto.title}`);
-
+    this.logger.log(`鍙嶉鍒涘缓鎴愬姛: ${dto.title || dto.content.substring(0, 20)}`);
     return feedback;
   }
 
   /**
-   * 更新反馈信息
+   * 鏇存柊鍙嶉淇℃伅
    */
   async update(
     id: string,
@@ -173,26 +170,29 @@ export class FeedbackService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`反馈不存在: ${id}`);
+      throw new NotFoundException(`鍙嶉涓嶅瓨鍦? ${id}`);
+    }
+
+    const updateData: any = {};
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.content !== undefined) updateData.content = data.content;
+    if (data.category !== undefined) updateData.category = data.category;
+    if (data.status !== undefined) {
+      const statusNum = Number(data.status);
+      if (!isNaN(statusNum)) updateData.status = statusNum;
     }
 
     const feedback = await this.prisma.feedback.update({
       where: { id },
-      data: {
-        ...(data.title !== undefined && { title: data.title }),
-        ...(data.content !== undefined && { content: data.content }),
-        ...(data.category !== undefined && { category: data.category }),
-        ...(data.status !== undefined && { status: data.status }),
-      },
+      data: updateData,
     });
 
-    this.logger.log(`反馈更新成功: ${id}`);
-
+    this.logger.log(`鍙嶉鏇存柊鎴愬姛: ${id}`);
     return feedback;
   }
 
   /**
-   * 删除反馈
+   * 鍒犻櫎鍙嶉
    */
   async remove(id: string) {
     const existing = await this.prisma.feedback.findUnique({
@@ -200,38 +200,35 @@ export class FeedbackService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`反馈不存在: ${id}`);
+      throw new NotFoundException(`鍙嶉涓嶅瓨鍦? ${id}`);
     }
 
     await this.prisma.feedback.delete({
       where: { id },
     });
 
-    this.logger.log(`反馈已删除: ${id}`);
+    this.logger.log(`鍙嶉宸插垹闄? ${id}`);
   }
 
   /**
-   * 回复反馈
-   * 直接更新反馈的 reply 字段和状态
-   */
+   * 鍥炲鍙嶉
+   * 鐩存帴鏇存柊鍙嶉鐨?reply 瀛楁鍜岀姸鎬?   */
   async reply(feedbackId: string, replierId: string, dto: ReplyFeedbackDto) {
     const feedback = await this.prisma.feedback.findUnique({
       where: { id: feedbackId },
     });
 
     if (!feedback) {
-      throw new NotFoundException(`反馈不存在: ${feedbackId}`);
+      throw new NotFoundException(`鍙嶉涓嶅瓨鍦? ${feedbackId}`);
     }
 
-    // 更新反馈的回复内容和状态
-    const updatedFeedback = await this.prisma.feedback.update({
+    // 鏇存柊鍙嶉鐨勫洖澶嶅唴瀹瑰拰鐘舵€?    const updatedFeedback = await this.prisma.feedback.update({
       where: { id: feedbackId },
       data: {
         reply: dto.content,
         repliedBy: replierId,
         repliedAt: new Date(),
-        status: dto.status || 3, // 默认已回复
-      },
+        status: dto.status || 3, // 榛樿宸插洖澶?      },
       include: {
         replier: {
           select: {
@@ -243,16 +240,15 @@ export class FeedbackService {
       },
     });
 
-    this.logger.log(`反馈 ${feedbackId} 已回复`);
-
+    this.logger.log(`鍙嶉 ${feedbackId} 宸插洖澶峘);
     return updatedFeedback;
   }
 
   /**
-   * 获取当前用户的反馈列表
-   */
+   * 鑾峰彇褰撳墠鐢ㄦ埛鐨勫弽棣堝垪琛?   */
   async findMyFeedbacks(userId: string, paginationDto: PaginationDto) {
-    const { page, pageSize } = paginationDto;
+    const page = Number(paginationDto?.page) || 1;
+    const pageSize = Number(paginationDto?.pageSize) || 10;
 
     const where = { parentId: userId };
 
