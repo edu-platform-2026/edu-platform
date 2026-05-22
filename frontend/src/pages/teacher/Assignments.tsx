@@ -66,9 +66,11 @@ const TeacherAssignments: React.FC = () => {
       };
       if (keyword?.trim()) params.keyword = keyword.trim();
       const response = await assignmentService.getAssignments(params);
-      const data = response.data;
-      setAssignments(data.items || []);
-      setTotal(data.total || 0);
+      const resData = response?.data;
+      const items = resData?.items || [];
+      const totalCount = resData?.total || resData?.meta?.total || 0;
+      setAssignments(items);
+      setTotal(totalCount);
     } catch (error: any) {
       message.error(error?.message || '加载作业列表失败');
     } finally {
@@ -79,7 +81,8 @@ const TeacherAssignments: React.FC = () => {
   const fetchCourses = async () => {
     try {
       const response = await courseService.getMyCourses();
-      setCourses(response.data || []);
+      const courseData = response?.data;
+      setCourses(Array.isArray(courseData) ? courseData : courseData?.items || []);
     } catch {
       // 静默
     }
@@ -124,10 +127,15 @@ const TeacherAssignments: React.FC = () => {
     try {
       const values = await createForm.validateFields();
       const attachments = createFileList.map(f => f.name);
-      const data: CreateAssignmentRequest = {
-        title: values.title, description: values.description, courseId: values.courseId,
+      const data: any = {
+        title: values.title,
+        description: values.description || '',
+        classId: values.classId || courses.find(c => c.id === values.courseId)?.classId || '',
+        courseId: values.courseId,
+        type: values.type || 1,
         dueDate: values.dueDate?.format?.('YYYY-MM-DD') || values.dueDate,
-        totalScore: values.totalScore, attachments,
+        maxScore: values.totalScore || 100,
+        attachments: attachments || [],
       };
       try {
         if (editingId) {
@@ -171,7 +179,9 @@ const TeacherAssignments: React.FC = () => {
     setSubmissionsLoading(true);
     try {
       const response = await assignmentService.getSubmissions(record.id);
-      setSubmissions((response.data.items || []) as SubmissionWithAttachments[]);
+      const subData = response?.data;
+      const subItems = subData?.items || (Array.isArray(subData) ? subData : []);
+      setSubmissions(subItems as SubmissionWithAttachments[]);
     } catch (error: any) {
       message.error(error?.message || '加载提交列表失败');
       setSubmissions([]);
