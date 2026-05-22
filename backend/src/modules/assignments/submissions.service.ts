@@ -45,7 +45,7 @@ export class SubmissionsService {
 
     if (filters?.assignmentId) where.assignmentId = filters.assignmentId;
     if (filters?.studentId) where.studentId = filters.studentId;
-    if (filters?.status != null && filters?.status !== '' && !isNaN(Number(filters.status))) where.status = Number(filters.status);
+    if (filters?.status != null && !isNaN(Number(filters.status))) where.status = Number(filters.status);
 
     const orderBy: any = { [sortBy]: sortOrder };
 
