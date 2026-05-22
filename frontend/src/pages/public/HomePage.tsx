@@ -56,7 +56,7 @@ const HomePage: React.FC = () => {
         }}
       >
         <Title style={{ color: '#fff', marginBottom: 16, fontSize: 42 }}>
-          阳光教育培训中心
+          小黑教育培训中心
         </Title>
         <Paragraph style={{ color: 'rgba(255,255,255,0.85)', fontSize: 18, marginBottom: 32 }}>
           专注中小学课外辅导，助力每一位学生成就更好的自己
@@ -155,7 +155,7 @@ const HomePage: React.FC = () => {
                 <Text strong>电话咨询</Text>
               </div>
               <div>
-                <Text type="secondary">010-12345678</Text>
+                <Text type="secondary">19807272440</Text>
               </div>
             </Card>
           </Col>
@@ -166,7 +166,7 @@ const HomePage: React.FC = () => {
                 <Text strong>邮箱</Text>
               </div>
               <div>
-                <Text type="secondary">contact@sunshine-edu.com</Text>
+                <Text type="secondary">3410551089@qq.com</Text>
               </div>
             </Card>
           </Col>
@@ -177,7 +177,7 @@ const HomePage: React.FC = () => {
                 <Text strong>地址</Text>
               </div>
               <div>
-                <Text type="secondary">北京市朝阳区教育路100号</Text>
+                <Text type="secondary">四川省巴中市粉壁镇发展街</Text>
               </div>
             </Card>
           </Col>
@@ -188,7 +188,7 @@ const HomePage: React.FC = () => {
                 <Text strong>工作时间</Text>
               </div>
               <div>
-                <Text type="secondary">周一至周日 8:00-20:00</Text>
+                <Text type="secondary">周一至周五 9:00-18:00</Text>
               </div>
             </Card>
           </Col>
