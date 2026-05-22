@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Typography, Progress, List, Tag, Space, Spin, Statistic } from 'antd';
+import { Card, Row, Col, Typography, Progress, List, Tag, Space, Spin, Statistic, Table } from 'antd';
 import {
   BookOutlined, TrophyOutlined, RiseOutlined, FallOutlined,
 } from '@ant-design/icons';
-import ReactECharts from 'echarts-for-react';
 import { analyticsService } from '../../services/analyticsService';
 import PageHeader from '../../components/common/PageHeader';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface CourseProgress {
   courseName: string;
@@ -29,7 +28,7 @@ const ParentProgress: React.FC = () => {
     setLoading(true);
     try {
       const response = await analyticsService.getStudentProgress('1');
-      setCourseProgress((response.data || []).map((item: any) => ({ ...item, trend: item.trend || 'stable' as const })));
+      setCourseProgress((response.data || []).map((item: any) => ({ ...item, trend: item.trend || 'stable' })));
     } catch {
       setCourseProgress([
         { courseName: '高等数学', progress: 75, avgScore: 82, assignmentCount: 8, trend: 'up' },
@@ -42,56 +41,50 @@ const ParentProgress: React.FC = () => {
     }
   };
 
-  const scoreTrendOption = {
-    tooltip: {
-      trigger: 'axis' as const,
-    },
-    legend: {
-      data: ['高等数学', '英语写作', '物理实验', '计算机基础'],
-    },
-    xAxis: {
-      type: 'category' as const,
-      data: ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'],
-    },
-    yAxis: {
-      type: 'value' as const,
-      min: 50,
-      max: 100,
-      name: '分数',
-    },
-    series: [
-      {
-        name: '高等数学',
-        type: 'line',
-        data: [72, 75, 78, 80, 82, 85],
-        smooth: true,
-      },
-      {
-        name: '英语写作',
-        type: 'line',
-        data: [68, 70, 72, 75, 78, 76],
-        smooth: true,
-      },
-      {
-        name: '物理实验',
-        type: 'line',
-        data: [80, 82, 85, 88, 86, 90],
-        smooth: true,
-      },
-      {
-        name: '计算机基础',
-        type: 'line',
-        data: [85, 88, 90, 92, 91, 95],
-        smooth: true,
-      },
-    ],
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true,
-    },
+  /* ---- 成绩趋势 Table ---- */
+  const scoreTrendData = [
+    { key: 1, test: '第1次', math: 72, english: 68, physics: 80, cs: 85 },
+    { key: 2, test: '第2次', math: 75, english: 70, physics: 82, cs: 88 },
+    { key: 3, test: '第3次', math: 78, english: 72, physics: 85, cs: 90 },
+    { key: 4, test: '第4次', math: 80, english: 75, physics: 88, cs: 92 },
+    { key: 5, test: '第5次', math: 82, english: 78, physics: 86, cs: 91 },
+    { key: 6, test: '第6次', math: 85, english: 76, physics: 90, cs: 95 },
+  ];
+
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return '#52c41a';
+    if (score >= 80) return '#1677ff';
+    if (score >= 70) return '#faad14';
+    return '#ff4d4f';
   };
+
+  const trendColumns = [
+    { title: '考试', dataIndex: 'test', key: 'test' },
+    {
+      title: '高等数学',
+      dataIndex: 'math',
+      key: 'math',
+      render: (score: number) => <span style={{ color: getScoreColor(score), fontWeight: 600 }}>{score}</span>,
+    },
+    {
+      title: '英语写作',
+      dataIndex: 'english',
+      key: 'english',
+      render: (score: number) => <span style={{ color: getScoreColor(score), fontWeight: 600 }}>{score}</span>,
+    },
+    {
+      title: '物理实验',
+      dataIndex: 'physics',
+      key: 'physics',
+      render: (score: number) => <span style={{ color: getScoreColor(score), fontWeight: 600 }}>{score}</span>,
+    },
+    {
+      title: '计算机基础',
+      dataIndex: 'cs',
+      key: 'cs',
+      render: (score: number) => <span style={{ color: getScoreColor(score), fontWeight: 600 }}>{score}</span>,
+    },
+  ];
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
@@ -99,13 +92,6 @@ const ParentProgress: React.FC = () => {
       case 'down': return <FallOutlined style={{ color: '#ff4d4f' }} />;
       default: return <span style={{ color: '#999' }}>-</span>;
     }
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return '#52c41a';
-    if (score >= 80) return '#1677ff';
-    if (score >= 70) return '#faad14';
-    return '#ff4d4f';
   };
 
   if (loading) {
@@ -184,7 +170,12 @@ const ParentProgress: React.FC = () => {
 
       {/* 成绩趋势 */}
       <Card title="成绩趋势" bordered={false}>
-        <ReactECharts option={scoreTrendOption} style={{ height: 300 }} />
+        <Table
+          dataSource={scoreTrendData}
+          columns={trendColumns}
+          pagination={false}
+          size="middle"
+        />
       </Card>
     </div>
   );
