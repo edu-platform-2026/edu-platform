@@ -54,11 +54,11 @@ export class AssignmentsService {
 
     const where: any = { institutionId };
 
-    if (filters?.status !== undefined && filters?.status !== null) where.status = Number(filters.status);
+    if (filters?.status != null && !isNaN(Number(filters.status))) where.status = Number(filters.status);
     if (filters?.classId) where.classId = filters.classId;
     if (filters?.courseId) where.courseId = filters.courseId;
     if (filters?.teacherId) where.teacherId = filters.teacherId;
-    if (filters?.type !== undefined && filters?.type !== null) where.type = Number(filters.type);
+    if (filters?.type != null && !isNaN(Number(filters.type))) where.type = Number(filters.type);
     if (filters?.subject) where.subject = filters.subject;
 
     if (filters?.keyword) {
