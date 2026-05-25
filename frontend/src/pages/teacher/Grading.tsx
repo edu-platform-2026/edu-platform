@@ -1,330 +1,144 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Card, Table, Tag, Button, Modal, InputNumber, Space, message, Descriptions,
-  Divider, Input, Alert, Select, Empty,
-} from 'antd';
-import {
-  EyeOutlined, CheckCircleOutlined, ClockCircleOutlined, RobotOutlined, ThunderboltOutlined,
-} from '@ant-design/icons';
-import PageHeader from '../../components/common/PageHeader';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Card, Table, Button, Space, Tag, Input, Modal, Form, InputNumber, Typography, Row, Col, Descriptions, message, Select } from 'antd';
+import { CheckOutlined, SearchOutlined, EyeOutlined } from '@ant-design/icons';
 import { assignmentService } from '../../services/assignmentService';
-import { aiGradeEssay, AIGradingResult } from '../../services/aiModelService';
+import { formatDate, formatDateTime } from '../../utils/date';
+import PageHeader from '../../components/common/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import { Assignment, AssignmentSubmission, AssignmentStatus, SubmissionStatus } from '../../types/assignment';
-import { formatDateTime } from '../../utils/date';
+import type { ColumnsType } from 'antd/es/table';
 
 const { TextArea } = Input;
+const { Text } = Typography;
 
-interface GradingSubmission extends AssignmentSubmission {
-  assignmentTitle?: string;
-  courseName?: string;
+function unwrapResponse(res: any): any {
+  const d = res?.data ?? res;
+  if (d && typeof d === 'object' && 'code' in d && 'data' in d) return d.data;
+  return d;
 }
 
-const Grading: React.FC = () => {
+const TeacherGrading: React.FC = () => {
   const { user } = useAuthStore();
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | undefined>(undefined);
-  const [submissions, setSubmissions] = useState<GradingSubmission[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [keyword, setKeyword] = useState('');
+  const [submissionsModalVisible, setSubmissionsModalVisible] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [gradeModalVisible, setGradeModalVisible] = useState(false);
+  const [gradingSubmission, setGradingSubmission] = useState<any>(null);
+  const [gradeForm] = Form.useForm();
 
-  const [gradingModalVisible, setGradingModalVisible] = useState(false);
-  const [currentSubmission, setCurrentSubmission] = useState<GradingSubmission | null>(null);
-  const [gradingScore, setGradingScore] = useState<number | null>(null);
-  const [gradingFeedback, setGradingFeedback] = useState('');
-  const [aiGradingLoading, setAiGradingLoading] = useState(false);
-  const [aiGradingResult, setAiGradingResult] = useState<AIGradingResult | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // 加载作业列表
   const fetchAssignments = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await assignmentService.getAssignments({ teacherId: user?.id, pageSize: 100 });
-      const resData = response?.data;
-      const items = resData?.items || (Array.isArray(resData) ? resData : []);
-      setAssignments(items);
-      // 默认选择第一个已发布的作业
-      if (items.length > 0 && !selectedAssignmentId) {
-        const published = items.find((a: Assignment) => a.status === AssignmentStatus.PUBLISHED) || items[0];
-        setSelectedAssignmentId(published.id);
-      }
+      const response = await assignmentService.getAssignments({ page: 1, pageSize: 100, teacherId: user?.id });
+      const raw = unwrapResponse(response);
+      setAssignments(Array.isArray(raw) ? raw : raw?.items || []);
     } catch (error: any) {
       message.error(error?.message || '加载作业列表失败');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [user?.id]);
 
-  // 加载提交列表
-  const fetchSubmissions = useCallback(async (assignmentId: string) => {
+  useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
+
+  const handleViewSubmissions = async (record: any) => {
+    setSelectedAssignment(record);
+    setSubmissionsModalVisible(true);
     setSubmissionsLoading(true);
     try {
-      const assignment = assignments.find(a => a.id === assignmentId);
-      const response = await assignmentService.getSubmissions(assignmentId);
-      const subData = response?.data;
-      const subItems = subData?.items || (Array.isArray(subData) ? subData : []);
-      const items = subItems.map((s: AssignmentSubmission) => ({
-        ...s,
-        assignmentTitle: assignment?.title || '',
-        courseName: assignment?.courseName || '',
-      }));
-      setSubmissions(items);
+      const response = await assignmentService.getSubmissions(record.id);
+      const raw = unwrapResponse(response);
+      setSubmissions(Array.isArray(raw) ? raw : raw?.items || []);
     } catch (error: any) {
       message.error(error?.message || '加载提交列表失败');
       setSubmissions([]);
-    } finally {
-      setSubmissionsLoading(false);
-    }
-  }, [assignments]);
-
-  useEffect(() => {
-    fetchAssignments();
-  }, [fetchAssignments]);
-
-  useEffect(() => {
-    if (selectedAssignmentId) {
-      fetchSubmissions(selectedAssignmentId);
-    }
-  }, [selectedAssignmentId, fetchSubmissions]);
-
-  const openGradingModal = (sub: GradingSubmission) => {
-    setCurrentSubmission(sub);
-    setGradingScore(sub.score ?? null);
-    setGradingFeedback(sub.feedback || '');
-    setAiGradingResult(null);
-    setGradingModalVisible(true);
+    } finally { setSubmissionsLoading(false); }
   };
 
-  // AI批改
-  const handleAIGrade = async () => {
-    if (!currentSubmission) return;
-    const assignment = assignments.find(a => a.id === currentSubmission.assignmentId);
-    setAiGradingLoading(true);
-    try {
-      const result = await aiGradeEssay(
-        assignment?.title || '作业',
-        assignment?.description || '',
-        currentSubmission.content || '',
-        assignment?.totalScore || 100
-      );
-      setAiGradingResult(result);
-      setGradingScore(result.score);
-      message.success('AI批改完成，请确认或调整分数');
-    } catch (err: any) {
-      message.error(`AI批改失败：${err.message}`);
-    } finally {
-      setAiGradingLoading(false);
-    }
+  const handleOpenGrade = (submission: any) => {
+    setGradingSubmission(submission);
+    gradeForm.setFieldsValue({ score: submission.score, feedback: submission.feedback || submission.comment });
+    setGradeModalVisible(true);
   };
 
-  // 保存批改结果
-  const handleSaveGrading = async () => {
-    if (!currentSubmission) return;
-    if (gradingScore === null || gradingScore === undefined) {
-      message.warning('请输入评分');
-      return;
-    }
-    setSaving(true);
+  const handleGradeSubmit = async () => {
     try {
-      await assignmentService.gradeSubmission(currentSubmission.id, {
-        score: gradingScore,
-        feedback: gradingFeedback,
-      });
-      message.success(`批改完成！${currentSubmission.studentName} 得分：${gradingScore}分`);
-      setGradingModalVisible(false);
-      // 刷新提交列表
-      if (selectedAssignmentId) {
-        fetchSubmissions(selectedAssignmentId);
-      }
+      const values = await gradeForm.validateFields();
+      await assignmentService.gradeSubmission(gradingSubmission!.id, { score: values.score, feedback: values.feedback });
+      message.success('批改成功');
+      setGradeModalVisible(false);
+      if (selectedAssignment) handleViewSubmissions(selectedAssignment);
+      fetchAssignments();
     } catch (error: any) {
-      message.error(error?.message || '批改保存失败');
-    } finally {
-      setSaving(false);
+      if (error?.message) message.error(error.message);
     }
   };
 
-  const selectedAssignment = assignments.find(a => a.id === selectedAssignmentId);
+  const statusMap: Record<number, { color: string; text: string }> = {
+    0: { color: 'default', text: '草稿' },
+    1: { color: 'default', text: '草稿' },
+    2: { color: 'processing', text: '已发布' },
+    3: { color: 'error', text: '已关闭' },
+  };
+  const subStatusMap: Record<string, { color: string; text: string }> = {
+    PENDING: { color: 'default', text: '未提交' },
+    SUBMITTED: { color: 'processing', text: '已提交' },
+    GRADED: { color: 'success', text: '已批改' },
+    RETURNED: { color: 'warning', text: '已退回' },
+    '1': { color: 'default', text: '未提交' },
+    '2': { color: 'processing', text: '已提交' },
+    '3': { color: 'success', text: '已批改' },
+  };
 
-  const columns = [
-    { title: '学生姓名', dataIndex: 'studentName', key: 'studentName', width: 100 },
-    {
-      title: '提交时间', dataIndex: 'submittedAt', key: 'submittedAt', width: 170,
-      render: (t: string) => formatDateTime(t),
-    },
-    {
-      title: '状态', dataIndex: 'status', key: 'status', width: 100,
-      render: (s: SubmissionStatus) => (
-        <Tag
-          color={s === SubmissionStatus.GRADED ? 'green' : s === SubmissionStatus.SUBMITTED ? 'blue' : 'default'}
-          icon={s === SubmissionStatus.GRADED ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
-        >
-          {s === SubmissionStatus.GRADED ? '已批改' : s === SubmissionStatus.SUBMITTED ? '待批改' : s === SubmissionStatus.PENDING ? '未提交' : '已退回'}
-        </Tag>
-      ),
-    },
-    {
-      title: '得分', dataIndex: 'score', key: 'score', width: 80,
-      render: (s: number | undefined, record: GradingSubmission) => (
-        record.status === SubmissionStatus.GRADED
-          ? <span style={{ fontWeight: 700, color: (s || 0) >= 60 ? '#52c41a' : '#ff4d4f' }}>{s}分</span>
-          : <span style={{ color: '#999' }}>待评</span>
-      ),
-    },
-    {
-      title: '操作', key: 'action', width: 120,
-      render: (_: any, record: GradingSubmission) => (
-        <Button type="link" icon={<EyeOutlined />} onClick={() => openGradingModal(record)}>
-          {record.status === SubmissionStatus.GRADED ? '查看' : '批改'}
-        </Button>
-      ),
-    },
+  const columns: ColumnsType<any> = [
+    { title: '作业标题', dataIndex: 'title', key: 'title', ellipsis: true, render: (t: string) => <Text strong>{t}</Text> },
+    { title: '班级', key: 'className', width: 100, render: (_: any, r: any) => r.class?.name || '-' },
+    { title: '截止日期', dataIndex: 'dueDate', key: 'dueDate', width: 120, render: (d: string) => d ? formatDate(d) : '-' },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: (s: number) => { const m = statusMap[s]; return m ? <Tag color={m.color}>{m.text}</Tag> : <Tag>{String(s)}</Tag>; }},
+    { title: '操作', key: 'action', width: 100, render: (_: any, r: any) => <Button type="primary" size="small" icon={<EyeOutlined />} onClick={() => handleViewSubmissions(r)}>查看提交</Button> },
+  ];
+
+  const subColumns: ColumnsType<any> = [
+    { title: '学生', key: 'student', width: 100, render: (_: any, r: any) => r.student?.realName || r.studentName || '-' },
+    { title: '提交时间', dataIndex: 'submittedAt', key: 'submittedAt', width: 160, render: (d: string) => d ? formatDateTime(d) : '-' },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: (s: any) => { const m = subStatusMap[String(s)] || subStatusMap[s]; return m ? <Tag color={m.color}>{m.text}</Tag> : <Tag>{String(s)}</Tag>; }},
+    { title: '分数', dataIndex: 'score', key: 'score', width: 70, render: (v: any) => v != null ? <Text strong>{String(v)}</Text> : '-' },
+    { title: '操作', key: 'action', width: 70, render: (_: any, r: any) => <Button type="primary" size="small" icon={<CheckOutlined />} onClick={() => handleOpenGrade(r)}>批改</Button> },
   ];
 
   return (
     <div>
-      <PageHeader title="作业批改" subtitle="支持AI智能批改问答题，教师可确认或调整AI评分" />
-
-      <Card bordered={false} style={{ marginBottom: 16 }}>
-        <Space>
-          <span>选择作业：</span>
-          <Select
-            placeholder="请选择作业"
-            style={{ width: 300 }}
-            value={selectedAssignmentId}
-            onChange={setSelectedAssignmentId}
-            loading={loading}
-            allowClear
-          >
-            {assignments.map(a => (
-              <Select.Option key={a.id} value={a.id}>
-                {a.title} ({a.courseName})
-              </Select.Option>
-            ))}
-          </Select>
-        </Space>
-      </Card>
-
+      <PageHeader title="作业批改" subtitle="查看学生提交并进行批改评分" />
       <Card bordered={false}>
-        {selectedAssignmentId ? (
-          <Table
-            dataSource={submissions}
-            columns={columns}
-            rowKey="id"
-            loading={submissionsLoading}
-            pagination={false}
-            size="middle"
-          />
-        ) : (
-          <Empty description="请先选择一个作业" />
-        )}
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Input placeholder="搜索作业" prefix={<SearchOutlined />} value={keyword} onChange={(e) => setKeyword(e.target.value)} allowClear />
+          </Col>
+        </Row>
+        <Table columns={columns} dataSource={assignments.filter((a: any) => !keyword || a.title?.includes(keyword))} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} />
       </Card>
 
-      <Modal
-        title={`批改作业 - ${currentSubmission?.studentName || ''}`}
-        open={gradingModalVisible}
-        onCancel={() => setGradingModalVisible(false)}
-        width={800}
-        footer={
-          currentSubmission?.status !== SubmissionStatus.GRADED ? (
-            <Space>
-              <Button onClick={() => setGradingModalVisible(false)}>取消</Button>
-              <Button icon={<RobotOutlined />} loading={aiGradingLoading} onClick={handleAIGrade}>
-                AI智能批改
-              </Button>
-              <Button type="primary" loading={saving} onClick={handleSaveGrading}>
-                保存批改结果
-              </Button>
-            </Space>
-          ) : (
-            <Button onClick={() => setGradingModalVisible(false)}>关闭</Button>
-          )
-        }
-      >
-        {currentSubmission && (
-          <>
-            <Descriptions column={2} size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="学生">{currentSubmission.studentName}</Descriptions.Item>
-              <Descriptions.Item label="作业">{currentSubmission.assignmentTitle || selectedAssignment?.title}</Descriptions.Item>
-              <Descriptions.Item label="提交时间">{formatDateTime(currentSubmission.submittedAt)}</Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={currentSubmission.status === SubmissionStatus.GRADED ? 'green' : 'blue'}>
-                  {currentSubmission.status === SubmissionStatus.GRADED ? '已批改' : '待批改'}
-                </Tag>
-              </Descriptions.Item>
+      <Modal title={`提交列表 - ${selectedAssignment?.title || ''}`} open={submissionsModalVisible} onCancel={() => setSubmissionsModalVisible(false)} footer={null} width={800}>
+        <Table columns={subColumns} dataSource={submissions} rowKey="id" loading={submissionsLoading} pagination={{ pageSize: 10 }} size="small" />
+      </Modal>
+
+      <Modal title="批改作业" open={gradeModalVisible} onOk={handleGradeSubmit} onCancel={() => setGradeModalVisible(false)} okText="提交批改" cancelText="取消" width={520} destroyOnClose>
+        {gradingSubmission && (
+          <div style={{ marginBottom: 16 }}>
+            <Descriptions column={1} size="small" bordered>
+              <Descriptions.Item label="学生">{gradingSubmission.student?.realName || gradingSubmission.studentName || '-'}</Descriptions.Item>
+              <Descriptions.Item label="提交时间">{gradingSubmission.submittedAt ? formatDateTime(gradingSubmission.submittedAt) : '-'}</Descriptions.Item>
             </Descriptions>
-
-            <Divider orientation="left" plain>学生提交内容</Divider>
-
-            <div style={{ background: '#f5f5f5', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-              <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                {currentSubmission.content || '（未填写内容）'}
-              </p>
-              {currentSubmission.attachments && currentSubmission.attachments.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <span style={{ fontWeight: 500 }}>附件：</span>
-                  {currentSubmission.attachments.map((file: string, idx: number) => (
-                    <Tag key={idx} color="blue" style={{ marginLeft: 4 }}>{file}</Tag>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* AI批改结果 */}
-            {aiGradingResult && (
-              <Alert
-                type="success"
-                showIcon
-                icon={<ThunderboltOutlined />}
-                message={
-                  <span>
-                    AI批改结果{' '}
-                    <Tag color="purple">建议 {aiGradingResult.score}/{aiGradingResult.maxScore} 分</Tag>
-                  </span>
-                }
-                description={
-                  <div>
-                    <p style={{ margin: '4px 0' }}><strong>评语：</strong>{aiGradingResult.comment}</p>
-                    {aiGradingResult.strengths.length > 0 && (
-                      <p style={{ margin: '4px 0' }}><strong>优点：</strong>{aiGradingResult.strengths.join('；')}</p>
-                    )}
-                    {aiGradingResult.improvements.length > 0 && (
-                      <p style={{ margin: '4px 0' }}><strong>建议：</strong>{aiGradingResult.improvements.join('；')}</p>
-                    )}
-                  </div>
-                }
-                style={{ marginBottom: 16 }}
-              />
-            )}
-
-            <Divider orientation="left" plain>评分与评语</Divider>
-
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12 }}>
-              <span>评分：</span>
-              <InputNumber
-                min={0}
-                max={selectedAssignment?.totalScore || 100}
-                value={gradingScore}
-                onChange={v => setGradingScore(v)}
-                addonAfter={`/ ${selectedAssignment?.totalScore || 100}分`}
-                style={{ width: 180 }}
-              />
-            </div>
-            <div>
-              <span>教师评语：</span>
-              <TextArea
-                rows={3}
-                value={gradingFeedback}
-                onChange={e => setGradingFeedback(e.target.value)}
-                placeholder="请输入评语（选填）"
-                style={{ marginTop: 4 }}
-              />
-            </div>
-          </>
+          </div>
         )}
+        <Form form={gradeForm} layout="vertical">
+          <Form.Item name="score" label="分数" rules={[{ required: true, message: '请输入分数' }]}><InputNumber min={0} max={1000} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="feedback" label="批语"><TextArea rows={4} placeholder="对学生的反馈" /></Form.Item>
+        </Form>
       </Modal>
     </div>
   );
 };
 
-export default Grading;
+export default TeacherGrading;
