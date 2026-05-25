@@ -382,7 +382,7 @@ export class UsersService {
 
     // Handle role update via UserRole table
     if (role) {
-      const roleRecord = await this.prisma.role.findUnique({
+      const roleRecord = await this.prisma.role.findFirst({
         where: { code: role },
       });
       if (roleRecord) {
