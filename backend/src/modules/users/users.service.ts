@@ -42,7 +42,7 @@ export class UsersService {
     const sortOrder = paginationDto?.sortOrder || 'desc';
 
     // 构建查询条件
-    const where: any = {};
+    const where: any = { status: { not: 0 } }; // Exclude disabled users by default
 
     if (filters?.institutionId) {
       where.institutionId = filters.institutionId;
