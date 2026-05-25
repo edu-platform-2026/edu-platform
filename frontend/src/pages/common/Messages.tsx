@@ -145,7 +145,7 @@ const Messages: React.FC = () => {
           id: u.id,
           username: u.username,
           realName: u.realName || u.name || u.username,
-          role: u.role || u.roles?.[0],
+          role: u.role || (Array.isArray(u.roles) ? (typeof u.roles[0] === 'string' ? u.roles[0] : u.roles[0]?.code || u.roles[0]?.name) : '') || '',
           avatarUrl: u.avatarUrl || u.avatar,
         }));
       setUserSearchResults(results);
