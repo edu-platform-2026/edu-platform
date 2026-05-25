@@ -132,6 +132,8 @@ export class UsersController {
       email?: string;
       avatarUrl?: string;
       gender?: number;
+      role?: string;
+      status?: number;
     },
   ) {
     return this.usersService.update(id, updateUserDto);
