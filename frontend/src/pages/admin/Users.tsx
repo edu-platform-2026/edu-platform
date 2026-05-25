@@ -87,7 +87,14 @@ const AdminUsers: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (editingId) {
-        await api.put(`/users/${editingId}`, values);
+        // Only send fields that backend accepts
+        const updateData: any = {
+          realName: values.name || values.realName,
+          email: values.email,
+          phone: values.phone,
+          role: values.role,
+        };
+        await api.put(`/users/${editingId}`, updateData);
         message.success('更新成功');
       } else {
         await api.post('/users', values);
