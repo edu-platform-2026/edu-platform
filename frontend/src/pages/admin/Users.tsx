@@ -87,7 +87,7 @@ const AdminUsers: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (editingId) {
-        await api.patch(`/users/${editingId}`, values);
+        await api.put(`/users/${editingId}`, values);
         message.success('更新成功');
       } else {
         await api.post('/users', values);
