@@ -1,41 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Tag, Button, Modal, Input, message, Card, Space, Spin, Empty } from 'antd';
+import { Table, Tag, Button, Modal, Input, message, Card, Space, Typography, Empty } from 'antd';
 import { UploadOutlined, EyeOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
 import { assignmentService } from '../../services/assignmentService';
-import { Assignment, AssignmentSubmission, SubmissionStatus } from '../../types/assignment';
+import { AssignmentSubmission, SubmissionStatus } from '../../types/assignment';
 
 const { TextArea } = Input;
+const { Text } = Typography;
 
-const submissionStatusTextMap: Record<string, string> = {
-  [SubmissionStatus.PENDING]: 'Pending',
-  [SubmissionStatus.SUBMITTED]: 'Submitted',
-  [SubmissionStatus.GRADED]: 'Graded',
-  [SubmissionStatus.RETURNED]: 'Graded',
+const statusTextMap: Record<string, string> = {
+  [SubmissionStatus.PENDING]: '待提交',
+  [SubmissionStatus.SUBMITTED]: '已提交',
+  [SubmissionStatus.GRADED]: '已批改',
+  [SubmissionStatus.RETURNED]: '已退回',
 };
-
 const statusColorMap: Record<string, string> = {
   [SubmissionStatus.PENDING]: 'warning',
   [SubmissionStatus.SUBMITTED]: 'blue',
   [SubmissionStatus.GRADED]: 'green',
-  [SubmissionStatus.RETURNED]: 'green',
+  [SubmissionStatus.RETURNED]: 'orange',
 };
 
-function safeGetData(res: any): any {
-  if (res && typeof res === 'object' && 'data' in res) {
-    const d = res.data;
-    if (d && typeof d === 'object' && 'code' in d && 'data' in d) return d.data;
-    return d;
-  }
-  return res;
+function unwrapResponse(res: any): any {
+  const d = res?.data ?? res;
+  if (d && typeof d === 'object' && 'code' in d && 'data' in d) return d.data;
+  return d;
 }
 
 const StudentAssignments: React.FC = () => {
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<AssignmentSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitModalVisible, setSubmitModalVisible] = useState(false);
-  const [currentAssignment, setCurrentAssignment] = useState<Assignment | null>(null);
+  const [currentAssignment, setCurrentAssignment] = useState<any>(null);
   const [submitContent, setSubmitContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -51,77 +48,82 @@ const StudentAssignments: React.FC = () => {
         assignmentService.getMySubmissions(),
       ]);
       if (assignRes.status === 'fulfilled') {
-        const data = safeGetData(assignRes.value);
-        setAssignments(Array.isArray(data) ? data : data?.items || []);
+        const raw = unwrapResponse(assignRes.value);
+        setAssignments(Array.isArray(raw) ? raw : raw?.items || []);
       }
       if (subRes.status === 'fulfilled') {
-        const data = safeGetData(subRes.value);
-        setSubmissions(Array.isArray(data) ? data : data?.items || []);
+        const raw = unwrapResponse(subRes.value);
+        setSubmissions(Array.isArray(raw) ? raw : raw?.items || []);
       }
-    } catch { message.error('Failed to load data'); } finally { setLoading(false); }
+    } catch { message.error('加载数据失败'); } finally { setLoading(false); }
   };
 
   const getSubmission = (assignmentId: string) => submissions.find(s => s.assignmentId === assignmentId);
 
   const handleSubmit = async () => {
-    if (!submitContent.trim()) { message.warning('Please enter content'); return; }
+    if (!submitContent.trim()) { message.warning('请输入提交内容'); return; }
     if (!currentAssignment) return;
     setSubmitting(true);
     try {
       await assignmentService.submitAssignment(currentAssignment.id, { content: submitContent });
-      message.success('Submitted successfully');
+      message.success('提交成功');
       setSubmitModalVisible(false); setSubmitContent(''); setCurrentAssignment(null); fetchData();
-    } catch { message.error('Submission failed'); } finally { setSubmitting(false); }
+    } catch (error: any) { message.error(error?.message || '提交失败'); } finally { setSubmitting(false); }
   };
 
   const columns = [
-    { title: 'Title', dataIndex: 'title', key: 'title', render: (text: string) => <span style={{ fontWeight: 500 }}>{text}</span> },
-    { title: 'Course', dataIndex: 'courseName', key: 'courseName', render: (t: any) => t || '-' },
-    { title: 'Due Date', dataIndex: 'dueDate', key: 'dueDate', render: (t: string) => t ? new Date(t).toLocaleDateString('zh-CN') : '-' },
-    { title: 'Status', key: 'status', render: (_: unknown, record: Assignment) => {
-      const sub = getSubmission(record.id);
-      return sub ? <Tag color={statusColorMap[sub.status] || 'default'}>{submissionStatusTextMap[sub.status] || sub.status}</Tag> : <Tag color="warning">Pending</Tag>;
+    { title: '作业标题', dataIndex: 'title', key: 'title', render: (t: string) => <Text strong>{t}</Text> },
+    { title: '课程', key: 'courseName', width: 100, render: (_: any, r: any) => r.course?.name || r.courseName || '-' },
+    { title: '截止日期', dataIndex: 'dueDate', key: 'dueDate', width: 120, render: (t: string) => t ? new Date(t).toLocaleDateString('zh-CN') : '-' },
+    { title: '满分', key: 'maxScore', width: 70, render: (_: any, r: any) => r.maxScore || 100 },
+    { title: '状态', key: 'status', width: 90, render: (_: any, r: any) => {
+      const sub = getSubmission(r.id);
+      return sub ? <Tag color={statusColorMap[sub.status] || 'default'}>{statusTextMap[sub.status] || sub.status}</Tag> : <Tag color="warning">未提交</Tag>;
     }},
-    { title: 'Score', key: 'score', render: (_: unknown, record: Assignment) => {
-      const sub = getSubmission(record.id);
-      return sub?.score != null ? <span style={{ fontWeight: 600, color: sub.score >= 60 ? '#52c41a' : '#ff4d4f' }}>{String(sub.score)}pts</span> : '-';
+    { title: '分数', key: 'score', width: 70, render: (_: any, r: any) => {
+      const sub = getSubmission(r.id);
+      return sub?.score != null ? <Text strong style={{ color: Number(sub.score) >= 60 ? '#52c41a' : '#ff4d4f' }}>{String(sub.score)}</Text> : '-';
     }},
-    { title: 'Action', key: 'action', render: (_: unknown, record: Assignment) => {
-      const sub = getSubmission(record.id);
-      if (!sub || sub.status === SubmissionStatus.PENDING) return <Button type="primary" size="small" icon={<UploadOutlined />} onClick={() => { setCurrentAssignment(record); setSubmitContent(''); setSubmitModalVisible(true); }}>Submit</Button>;
-      if (sub.status === SubmissionStatus.GRADED || sub.status === SubmissionStatus.RETURNED) return <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => { setCurrentSubmission(sub); setDetailModalVisible(true); }}>View</Button>;
-      return <Tag color="blue">Submitted</Tag>;
+    { title: '操作', key: 'action', width: 140, render: (_: any, r: any) => {
+      const sub = getSubmission(r.id);
+      return (
+        <Space>
+          {!sub && <Button type="primary" size="small" icon={<UploadOutlined />} onClick={() => { setCurrentAssignment(r); setSubmitContent(''); setSubmitModalVisible(true); }}>提交</Button>}
+          {sub && <Button size="small" icon={<EyeOutlined />} onClick={() => { setCurrentSubmission(sub); setDetailModalVisible(true); }}>详情</Button>}
+        </Space>
+      );
     }},
   ];
 
   return (
-    <Spin spinning={loading}>
-      <div>
-        <PageHeader title="My Assignments" subtitle="View and submit assignments" />
-        <Card bordered={false}>
-          {assignments.length > 0 ? <Table dataSource={assignments} columns={columns} rowKey="id" pagination={false} size="middle" /> : <Empty description="No assignments" />}
-        </Card>
-        <Modal title={`Submit: ${currentAssignment?.title || ''}`} open={submitModalVisible} onOk={handleSubmit}
-          onCancel={() => { setSubmitModalVisible(false); setSubmitContent(''); setCurrentAssignment(null); }}
-          okText="Submit" cancelText="Cancel" confirmLoading={submitting} destroyOnClose>
-          <TextArea rows={6} placeholder="Enter your work..." value={submitContent} onChange={(e) => setSubmitContent(e.target.value)} />
-        </Modal>
-        <Modal title="Assignment Details" open={detailModalVisible}
-          onCancel={() => { setDetailModalVisible(false); setCurrentSubmission(null); }}
-          footer={<Button onClick={() => { setDetailModalVisible(false); setCurrentSubmission(null); }}>Close</Button>} destroyOnClose>
-          {currentSubmission && (
-            <div style={{ lineHeight: 2 }}>
-              <p><strong>Content:</strong></p>
-              <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, marginBottom: 16, whiteSpace: 'pre-wrap' }}>{currentSubmission.content || 'No content'}</div>
-              <p><strong>Score:</strong> <span style={{ fontWeight: 600, fontSize: 18, color: (currentSubmission.score ?? 0) >= 60 ? '#52c41a' : '#ff4d4f' }}>{currentSubmission.score ?? '-'}pts</span></p>
-              <p><strong>Comment:</strong> {(currentSubmission as any).feedback || (currentSubmission as any).comment || 'None'}</p>
-              <p><strong>Submitted:</strong> {currentSubmission.submittedAt ? new Date(currentSubmission.submittedAt).toLocaleString('zh-CN') : '-'}</p>
-              <p><strong>Graded:</strong> {currentSubmission.gradedAt ? new Date(currentSubmission.gradedAt).toLocaleString('zh-CN') : '-'}</p>
-            </div>
-          )}
-        </Modal>
-      </div>
-    </Spin>
+    <div>
+      <PageHeader title="我的作业" subtitle="查看和提交作业" />
+      <Card bordered={false}>
+        <Table columns={columns} dataSource={assignments} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} locale={{ emptyText: <Empty description="暂无作业" /> }} />
+      </Card>
+
+      <Modal title="提交作业" open={submitModalVisible} onOk={handleSubmit} onCancel={() => { setSubmitModalVisible(false); setCurrentAssignment(null); }} okText="提交" cancelText="取消" confirmLoading={submitting} width={600}>
+        {currentAssignment && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 8 }}>
+            <Text strong>{currentAssignment.title}</Text>
+            {currentAssignment.description && <div style={{ marginTop: 8, color: '#666' }}>{currentAssignment.description}</div>}
+          </div>
+        )}
+        <TextArea rows={6} value={submitContent} onChange={(e) => setSubmitContent(e.target.value)} placeholder="输入提交内容..." />
+      </Modal>
+
+      <Modal title="提交详情" open={detailModalVisible} onCancel={() => { setDetailModalVisible(false); setCurrentSubmission(null); }} footer={null} width={600}>
+        {currentSubmission && (
+          <div>
+            <p><Text strong>状态：</Text><Tag color={statusColorMap[currentSubmission.status]}>{statusTextMap[currentSubmission.status]}</Tag></p>
+            <p><Text strong>内容：</Text>{currentSubmission.content}</p>
+            <p><Text strong>提交时间：</Text>{currentSubmission.submittedAt ? new Date(currentSubmission.submittedAt).toLocaleString('zh-CN') : '-'}</p>
+            {currentSubmission.score != null && <p><Text strong>分数：</Text><Text style={{ color: Number(currentSubmission.score) >= 60 ? '#52c41a' : '#ff4d4f' }}>{String(currentSubmission.score)}</Text></p>}
+            {currentSubmission.feedback && <p><Text strong>批语：</Text>{currentSubmission.feedback}</p>}
+          </div>
+        )}
+      </Modal>
+    </div>
   );
 };
 
