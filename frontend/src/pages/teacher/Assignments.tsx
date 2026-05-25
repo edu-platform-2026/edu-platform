@@ -68,7 +68,7 @@ const TeacherAssignments: React.FC = () => {
       const response = await assignmentService.getAssignments(params);
       const resData = response?.data;
       const items = resData?.items || [];
-      const totalCount = resData?.total || resData?.meta?.total || 0;
+      const totalCount = resData?.total || 0;
       setAssignments(items);
       setTotal(totalCount);
     } catch (error: any) {
@@ -82,7 +82,7 @@ const TeacherAssignments: React.FC = () => {
     try {
       const response = await courseService.getMyCourses();
       const courseData = response?.data;
-      setCourses(Array.isArray(courseData) ? courseData : courseData?.items || []);
+      setCourses(Array.isArray(courseData) ? courseData : []);
     } catch {
       // 静默
     }
