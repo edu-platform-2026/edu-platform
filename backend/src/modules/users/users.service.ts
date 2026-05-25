@@ -337,6 +337,8 @@ export class UsersService {
       email?: string;
       avatarUrl?: string;
       gender?: number;
+      role?: string;
+      status?: number;
     },
   ) {
     // 检查用户是否存在
@@ -359,9 +361,12 @@ export class UsersService {
       }
     }
 
+    // Extract role from data - handle separately via UserRole table
+    const { role, ...updateData } = data as any;
+
     const user = await this.prisma.user.update({
       where: { id },
-      data,
+      data: updateData,
       select: {
         id: true,
         username: true,
@@ -374,6 +379,23 @@ export class UsersService {
         updatedAt: true,
       },
     });
+
+    // Handle role update via UserRole table
+    if (role) {
+      const roleRecord = await this.prisma.role.findUnique({
+        where: { code: role },
+      });
+      if (roleRecord) {
+        // Remove existing roles and assign new one
+        await this.prisma.userRole.deleteMany({ where: { userId: id } });
+        await this.prisma.userRole.create({
+          data: { userId: id, roleId: roleRecord.id },
+        });
+        this.logger.log(`用户角色更新为: ${role}`);
+      } else {
+        this.logger.warn(`角色不存在: ${role}`);
+      }
+    }
 
     this.logger.log(`用户更新成功: ${id}`);
 
